@@ -1,0 +1,17 @@
+{
+  "name": "emotional_starts",
+  "entries": [
+    {"value": "grieving a person no one else will name", "weight": 2, "tags": ["grief"]},
+    {"value": "relieved and ashamed to be home", "weight": 2, "tags": ["family"]},
+    {"value": "angry at the wrong thing, on purpose", "weight": 2, "tags": ["anger"]},
+    {"value": "hopeful in a way she would deny", "weight": 1, "tags": ["hope"]},
+    {"value": "numb, and treating it as competence", "weight": 2, "tags": ["numb"]},
+    {"value": "guilty about a decision that was correct", "weight": 2, "tags": ["guilt"]},
+    {"value": "lonely in a full house", "weight": 2, "tags": ["lonely"]},
+    {"value": "braced for bad news that has not arrived", "weight": 1, "tags": ["fear"]},
+    {"value": "restless after too many years of being useful", "weight": 1, "tags": ["restless"]},
+    {"value": "fond of everyone and close to no one", "weight": 2, "tags": ["lonely"]},
+    {"value": "proud of a life that no longer fits", "weight": 1, "tags": ["pride"]},
+    {"value": "in debt to someone she cannot repay", "weight": 1, "tags": ["obligation"]}
+  ]
+}

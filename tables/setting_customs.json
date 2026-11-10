@@ -1,0 +1,19 @@
+{
+  "name": "setting_customs",
+  "entries": [
+    {"value": "doors are left unlocked but gates are chained", "weight": 2, "tags": ["place"]},
+    {"value": "no one says a person's name on the day they die", "weight": 2, "tags": ["ritual"]},
+    {"value": "bread is broken, never cut, at a funeral", "weight": 1, "tags": ["ritual"]},
+    {"value": "newcomers are asked three questions before their first meal", "weight": 2, "tags": ["welcome"]},
+    {"value": "business is done while walking", "weight": 1, "tags": ["work"]},
+    {"value": "the oldest child keeps the family tools", "weight": 2, "tags": ["family"]},
+    {"value": "a bell rings once for a birth and twice for a debt", "weight": 2, "tags": ["sound"]},
+    {"value": "guests must bring their own cup", "weight": 1, "tags": ["welcome"]},
+    {"value": "the river is thanked before it is crossed", "weight": 2, "tags": ["ritual"]},
+    {"value": "arguments happen in the street, apologies in the kitchen", "weight": 2, "tags": ["social"]},
+    {"value": "harvest hands are fed before the family", "weight": 1, "tags": ["work"]},
+    {"value": "no work is done on the first fog of the month", "weight": 1, "tags": ["calendar"]},
+    {"value": "every roof carries a stone from the road it faces", "weight": 1, "tags": ["place"]},
+    {"value": "the dead are remembered by what they lent, not what they owned", "weight": 2, "tags": ["ritual"]}
+  ]
+}

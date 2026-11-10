@@ -1,0 +1,21 @@
+{
+  "name": "quirks",
+  "entries": [
+    {"value": "counts stairs under her breath", "weight": 2, "tags": ["habit"]},
+    {"value": "keeps a list of overheard compliments", "weight": 1, "tags": ["habit"]},
+    {"value": "always sits with her back to a wall", "weight": 2, "tags": ["habit"]},
+    {"value": "hums the same four notes when nervous", "weight": 2, "tags": ["tell"]},
+    {"value": "names every appliance in the house", "weight": 1, "tags": ["comic"]},
+    {"value": "cannot leave a library without a new bookmark", "weight": 1, "tags": ["cozy"]},
+    {"value": "straightens other people's collars mid-sentence", "weight": 1, "tags": ["habit"]},
+    {"value": "writes apologies she never sends", "weight": 2, "tags": ["tell"]},
+    {"value": "eats one thing at a time, in order", "weight": 1, "tags": ["comic"]},
+    {"value": "quotes weather reports as if they were poetry", "weight": 1, "tags": ["voice"]},
+    {"value": "keeps receipts in a cigar box", "weight": 1, "tags": ["object"]},
+    {"value": "refuses to walk on the left side of anyone", "weight": 1, "tags": ["habit"]},
+    {"value": "taps a rhythm on doorframes before entering", "weight": 2, "tags": ["tell"]},
+    {"value": "salutes magpies", "weight": 1, "tags": ["comic"]},
+    {"value": "saves the last bite for whoever is quietest", "weight": 1, "tags": ["cozy"]},
+    {"value": "argues with maps", "weight": 1, "tags": ["comic"]}
+  ]
+}

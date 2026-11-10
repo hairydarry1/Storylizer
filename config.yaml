@@ -1,0 +1,37 @@
+# Story Pipeline configuration.
+# Adapters, models and randomness live here; changing them is a config change, not a code change.
+
+seed: 20261106   # every random roll derives from this seed (BUILD_SPEC.md section 6)
+chaos_dial: 1    # 0 = tame .. 3 = chaotic: how many random constraints each stage applies
+
+adapters:
+  # Text generation: echo | manual | openai_compatible
+  llm:
+    type: echo
+    options:
+      response: echo
+
+  # Not built yet, so they stay unset:
+  #   search: milestone M4
+  #   image:  milestone M8
+
+# --- manual: works with any chat tool, no API key, no network ------------------
+#  llm:
+#    type: manual
+#    options:
+#      directory: .manual    # prompt/reply files are written here
+#      timeout: 3600         # seconds to wait for a pasted reply (0 = check once)
+#      poll_interval: 2
+#
+# --- openai_compatible: OpenRouter, Together, vLLM, LM Studio and similar ------
+#  llm:
+#    type: openai_compatible
+#    options:
+#      base_url: https://openrouter.ai/api/v1
+#      model: meta-llama/llama-3.3-70b-instruct
+#      api_key_env: OPENROUTER_API_KEY    # the key itself lives in the environment only
+#      timeout: 120
+#      models:                             # optional per-tier models (section 5)
+#        planner: meta-llama/llama-3.3-70b-instruct
+#        writer: meta-llama/llama-3.3-70b-instruct
+#        checker: meta-llama/llama-3.1-8b-instruct

@@ -1,0 +1,17 @@
+{
+  "name": "physical_marks",
+  "entries": [
+    {"value": "a burn scar across two knuckles, from a kettle she does not explain", "weight": 2, "tags": ["scar"]},
+    {"value": "a chipped front tooth she covers when she laughs", "weight": 1, "tags": ["feature"]},
+    {"value": "silver streaks in dark hair, early", "weight": 1, "tags": ["feature"]},
+    {"value": "a birthmark shaped like a comma below her ear", "weight": 1, "tags": ["feature"]},
+    {"value": "one shoulder set lower from an old fall", "weight": 2, "tags": ["body"]},
+    {"value": "calluses in the shape of a pen", "weight": 2, "tags": ["work"]},
+    {"value": "a tattoo she keeps covered at work", "weight": 1, "tags": ["choice"]},
+    {"value": "a limp that only shows when she is tired", "weight": 2, "tags": ["body"]},
+    {"value": "freckles burned into a pattern by years of the same sun", "weight": 1, "tags": ["feature"]},
+    {"value": "a voice that goes hoarse on the last word of a sentence", "weight": 1, "tags": ["voice"]},
+    {"value": "two fingers that never straighten all the way", "weight": 2, "tags": ["body"]},
+    {"value": "a scar through one eyebrow from a door she was pushed through", "weight": 1, "tags": ["scar"]}
+  ]
+}

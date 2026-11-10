@@ -1,0 +1,19 @@
+{
+  "name": "smells_tastes",
+  "entries": [
+    {"value": "wet stone and cold iron", "weight": 2, "tags": ["sensory"]},
+    {"value": "bread rising under a damp cloth", "weight": 2, "tags": ["cozy"]},
+    {"value": "woodsmoke caught in wool", "weight": 2, "tags": ["sensory"]},
+    {"value": "fish oil and lemon peel", "weight": 1, "tags": ["market"]},
+    {"value": "cheap tea steeped too long", "weight": 2, "tags": ["sensory"]},
+    {"value": "pine resin on the fingers", "weight": 1, "tags": ["outdoors"]},
+    {"value": "sour beer and sawdust", "weight": 1, "tags": ["tavern"]},
+    {"value": "rain on hot brick", "weight": 2, "tags": ["weather"]},
+    {"value": "tallow, ink, and paper dust", "weight": 1, "tags": ["work"]},
+    {"value": "overripe plums in a warm kitchen", "weight": 1, "tags": ["cozy"]},
+    {"value": "salt drying on skin", "weight": 1, "tags": ["coast"]},
+    {"value": "copper pennies and old sweat", "weight": 1, "tags": ["sensory"]},
+    {"value": "vinegar, boiled greens, and the ghost of bacon", "weight": 1, "tags": ["kitchen"]},
+    {"value": "cold well water that tastes of the bucket", "weight": 1, "tags": ["sensory"]}
+  ]
+}

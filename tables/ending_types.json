@@ -1,0 +1,17 @@
+{
+  "name": "ending_types",
+  "entries": [
+    {"value": "costly victory: the goal is won, something irreplaceable is spent", "weight": 2, "tags": ["ending"]},
+    {"value": "quiet return: the same place, a different way of seeing it", "weight": 2, "tags": ["cozy"]},
+    {"value": "open door: one question answered, a larger one left standing", "weight": 2, "tags": ["ending"]},
+    {"value": "reversal of fortune with a witness who understands", "weight": 1, "tags": ["ending"]},
+    {"value": "homecoming that is not a home", "weight": 1, "tags": ["ending"]},
+    {"value": "handover: the protagonist gives the work to someone younger", "weight": 1, "tags": ["ending"]},
+    {"value": "public reckoning with private mercy", "weight": 2, "tags": ["ending"]},
+    {"value": "departure at first light, destination named but not shown", "weight": 1, "tags": ["ending"]},
+    {"value": "reconciliation without agreement", "weight": 2, "tags": ["family"]},
+    {"value": "a joke told at the right time, then silence", "weight": 2, "tags": ["comic"]},
+    {"value": "the debt is paid in a currency no one expected", "weight": 1, "tags": ["ending"]},
+    {"value": "a small ceremony that nobody outside the room will hear about", "weight": 2, "tags": ["cozy"]}
+  ]
+}

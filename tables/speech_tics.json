@@ -1,0 +1,17 @@
+{
+  "name": "speech_tics",
+  "entries": [
+    {"value": "answers questions with a different question", "weight": 2, "tags": ["dialogue"]},
+    {"value": "says 'right' before disagreeing", "weight": 2, "tags": ["dialogue"]},
+    {"value": "drops the subject of every sentence when tired", "weight": 1, "tags": ["tired"]},
+    {"value": "uses full names when angry", "weight": 2, "tags": ["anger"]},
+    {"value": "repeats the last three words she heard", "weight": 1, "tags": ["habit"]},
+    {"value": "calls everyone 'boss' regardless of rank", "weight": 1, "tags": ["comic"]},
+    {"value": "numbers her points out loud", "weight": 1, "tags": ["work"]},
+    {"value": "softens every request with 'when you get a chance'", "weight": 2, "tags": ["deference"]},
+    {"value": "laughs at her own jokes a beat early", "weight": 1, "tags": ["comic"]},
+    {"value": "quotes her grandmother as law", "weight": 2, "tags": ["family"]},
+    {"value": "says 'we' when she means 'you'", "weight": 2, "tags": ["control"]},
+    {"value": "trails off instead of finishing a compliment", "weight": 1, "tags": ["shy"]}
+  ]
+}

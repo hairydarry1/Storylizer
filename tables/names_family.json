@@ -1,0 +1,27 @@
+{
+  "name": "names_family",
+  "phonetic": {
+    "syllable_patterns": [
+      "{onset}{nucleus}",
+      "{onset}{nucleus}{coda}"
+    ],
+    "onset": [
+      "b", "c", "d", "f", "g", "h", "k", "l", "m", "n", "p", "r", "s",
+      "sh", "t", "v", "w", "br", "cl", "dr", "gr", "st", "th", "tr"
+    ],
+    "nucleus": [
+      "a", "e", "i", "o", "u", "ai", "ea", "ei", "oa", "ou", "au", "y"
+    ],
+    "coda": [
+      "l", "m", "n", "r", "s", "th", "ld", "rk", "st", "ng", "ck", "sh"
+    ],
+    "suffixes": [
+      "", "", "wood", "ford", "wick", "hollow", "marsh", "stone", "vale",
+      "ridge", "cross", "by", "holt", "mere", "dell", "stead", "brook",
+      "field", "crest", "fall", "gate"
+    ],
+    "min_syllables": 1,
+    "max_syllables": 2
+  },
+  "entries": []
+}

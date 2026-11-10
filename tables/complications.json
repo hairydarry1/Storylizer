@@ -1,0 +1,21 @@
+{
+  "name": "complications",
+  "entries": [
+    {"value": "the payment is due a season early", "weight": 2, "tags": ["money"]},
+    {"value": "the witness recants in public", "weight": 2, "tags": ["social"]},
+    {"value": "a younger sibling arrives unannounced", "weight": 1, "tags": ["family"]},
+    {"value": "the road is closed by a landslide", "weight": 1, "tags": ["travel"]},
+    {"value": "someone has been forging her signature", "weight": 2, "tags": ["fraud"]},
+    {"value": "the well runs bitter", "weight": 2, "tags": ["place"]},
+    {"value": "a debt is sold to a stranger", "weight": 2, "tags": ["money"]},
+    {"value": "the wrong person is praised for her work", "weight": 2, "tags": ["work"]},
+    {"value": "a letter arrives addressed to a name she abandoned", "weight": 2, "tags": ["past"]},
+    {"value": "the council wants a decision by morning", "weight": 1, "tags": ["time"]},
+    {"value": "her best tool breaks with no replacement", "weight": 1, "tags": ["work"]},
+    {"value": "a neighbor's child goes missing", "weight": 2, "tags": ["danger"]},
+    {"value": "the harvest fails by half", "weight": 2, "tags": ["weather"]},
+    {"value": "an old rival returns with better manners", "weight": 2, "tags": ["social"]},
+    {"value": "the ferry stops running for a week", "weight": 1, "tags": ["travel"]},
+    {"value": "a promised favor is called in at the worst hour", "weight": 2, "tags": ["obligation"]}
+  ]
+}

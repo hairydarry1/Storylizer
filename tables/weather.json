@@ -1,0 +1,17 @@
+{
+  "name": "weather",
+  "entries": [
+    {"value": "a wind that changes direction every hour", "weight": 2, "tags": ["wind"]},
+    {"value": "fog that lifts at noon and returns at four", "weight": 2, "tags": ["fog"]},
+    {"value": "rain that arrives sideways", "weight": 2, "tags": ["rain"]},
+    {"value": "a heat that makes the dogs lie in the road", "weight": 2, "tags": ["heat"]},
+    {"value": "snow that never settles but never stops", "weight": 1, "tags": ["snow"]},
+    {"value": "a dry thunderstorm that only makes noise", "weight": 1, "tags": ["storm"]},
+    {"value": "sun so thin it feels borrowed", "weight": 1, "tags": ["light"]},
+    {"value": "hail like thrown gravel", "weight": 1, "tags": ["storm"]},
+    {"value": "a still day where every sound carries twice", "weight": 2, "tags": ["still"]},
+    {"value": "clouds the color of dishwater", "weight": 1, "tags": ["light"]},
+    {"value": "a thaw that turns every road to argument", "weight": 2, "tags": ["thaw"]},
+    {"value": "wind that carries the smell of a fire two valleys over", "weight": 1, "tags": ["wind"]}
+  ]
+}

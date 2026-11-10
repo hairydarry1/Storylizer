@@ -1,0 +1,19 @@
+{
+  "name": "flaws",
+  "entries": [
+    {"value": "mistakes being needed for being loved", "weight": 2, "tags": ["core"]},
+    {"value": "apologizes before she is accused", "weight": 2, "tags": ["core"]},
+    {"value": "keeps score in silence", "weight": 2, "tags": ["core"]},
+    {"value": "trusts the wrong people quickly and the right ones slowly", "weight": 2, "tags": ["core"]},
+    {"value": "would rather be interesting than kind", "weight": 1, "tags": ["social"]},
+    {"value": "treats every delay as a personal insult", "weight": 1, "tags": ["temper"]},
+    {"value": "cannot admit she is lost", "weight": 2, "tags": ["pride"]},
+    {"value": "hoards information to feel safe", "weight": 2, "tags": ["control"]},
+    {"value": "confuses honesty with bluntness", "weight": 2, "tags": ["social"]},
+    {"value": "avoids the one conversation that matters", "weight": 2, "tags": ["avoidance"]},
+    {"value": "spends money to avoid feeling poor", "weight": 1, "tags": ["money"]},
+    {"value": "believes suffering is proof of seriousness", "weight": 1, "tags": ["pride"]},
+    {"value": "turns every gift into a debt", "weight": 1, "tags": ["control"]},
+    {"value": "protects people from decisions they could make themselves", "weight": 2, "tags": ["control"]}
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "imagery_domains",
+  "entries": [
+    {"value": "river engineering: sluices, silt, flood marks", "weight": 2, "tags": ["craft"]},
+    {"value": "beekeeping and the politics of a hive", "weight": 2, "tags": ["nature"]},
+    {"value": "mapmaking and deliberate blank spaces", "weight": 2, "tags": ["craft"]},
+    {"value": "bell founding and the sound of a town", "weight": 1, "tags": ["craft"]},
+    {"value": "laundry, starch, and public reputation", "weight": 2, "tags": ["social"]},
+    {"value": "boat repair and inherited tools", "weight": 2, "tags": ["craft"]},
+    {"value": "orchard grafting and family resemblances", "weight": 2, "tags": ["nature"]},
+    {"value": "clockwork and small failures of timing", "weight": 1, "tags": ["craft"]},
+    {"value": "salt harvesting and evaporation", "weight": 1, "tags": ["nature"]},
+    {"value": "bookbinding and the repair of broken spines", "weight": 2, "tags": ["craft"]},
+    {"value": "drainage tunnels and what the city hides", "weight": 1, "tags": ["place"]},
+    {"value": "glassblowing and heat that cannot be rushed", "weight": 1, "tags": ["craft"]},
+    {"value": "sheep trails that predate the roads", "weight": 1, "tags": ["place"]},
+    {"value": "a bakery's ovens as the clock of a street", "weight": 2, "tags": ["cozy"]}
+  ]
+}

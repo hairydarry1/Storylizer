@@ -1,0 +1,20 @@
+{
+  "name": "ai_default_plots",
+  "entries": [
+    {"value": "small-town festival saves the shop", "weight": 1, "tags": ["ai-default"]},
+    {"value": "reconnecting with tradition", "weight": 1, "tags": ["ai-default"]},
+    {"value": "chosen one discovers a hidden power", "weight": 1, "tags": ["ai-default"]},
+    {"value": "found family heals every wound", "weight": 1, "tags": ["ai-default"]},
+    {"value": "grumpy mentor softens for the right student", "weight": 1, "tags": ["ai-default"]},
+    {"value": "letter from a dead relative reveals a secret", "weight": 1, "tags": ["ai-default"]},
+    {"value": "big city career returns home to slow down", "weight": 1, "tags": ["ai-default"]},
+    {"value": "prophecy names the protagonist", "weight": 1, "tags": ["ai-default"]},
+    {"value": "academy for the gifted", "weight": 1, "tags": ["ai-default"]},
+    {"value": "coffee shop romance built on a misunderstanding", "weight": 1, "tags": ["ai-default"]},
+    {"value": "heist crew takes one last job", "weight": 1, "tags": ["ai-default"]},
+    {"value": "amnesia hides the betrayal", "weight": 1, "tags": ["ai-default"]},
+    {"value": "the town bands together to save the library", "weight": 1, "tags": ["ai-default"]},
+    {"value": "a rival becomes the love interest", "weight": 1, "tags": ["ai-default"]},
+    {"value": "the underdog wins the tournament", "weight": 1, "tags": ["ai-default"]}
+  ]
+}

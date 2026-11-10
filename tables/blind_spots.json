@@ -1,0 +1,17 @@
+{
+  "name": "blind_spots",
+  "entries": [
+    {"value": "assumes everyone wants what she wants", "weight": 2, "tags": ["perception"]},
+    {"value": "cannot see that she is the favored one", "weight": 2, "tags": ["family"]},
+    {"value": "does not notice when she is being managed", "weight": 2, "tags": ["perception"]},
+    {"value": "reads silence as agreement", "weight": 2, "tags": ["perception"]},
+    {"value": "thinks her mother's love is a transaction", "weight": 1, "tags": ["family"]},
+    {"value": "believes her own story about the town", "weight": 2, "tags": ["memory"]},
+    {"value": "misses that the joke is on her", "weight": 1, "tags": ["comic"]},
+    {"value": "takes loyalty for granted", "weight": 2, "tags": ["social"]},
+    {"value": "hears criticism as instruction", "weight": 1, "tags": ["work"]},
+    {"value": "does not know her own strength", "weight": 2, "tags": ["body"]},
+    {"value": "assumes the quiet one agrees", "weight": 1, "tags": ["perception"]},
+    {"value": "cannot tell the difference between being liked and being trusted", "weight": 2, "tags": ["social"]}
+  ]
+}

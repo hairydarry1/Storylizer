@@ -1,0 +1,19 @@
+{
+  "name": "chapter_shapes",
+  "entries": [
+    {"value": "opening image, small task, interruption, cost, exit on a question", "weight": 2, "tags": ["shape"]},
+    {"value": "two conversations that never meet, then a collision", "weight": 2, "tags": ["shape"]},
+    {"value": "a plan, a rehearsal, a first attempt that half works", "weight": 2, "tags": ["shape"]},
+    {"value": "arrival, tour, one wrong room", "weight": 1, "tags": ["shape"]},
+    {"value": "quiet morning, escalating errand, one public mistake", "weight": 2, "tags": ["shape"]},
+    {"value": "a favor asked, a favor priced, a favor refused", "weight": 2, "tags": ["shape"]},
+    {"value": "celebration, undercurrent, a departure nobody explains", "weight": 1, "tags": ["shape"]},
+    {"value": "interrogation, denial, one detail that does not fit", "weight": 2, "tags": ["shape"]},
+    {"value": "journey with a stop that was not planned", "weight": 1, "tags": ["shape"]},
+    {"value": "a funeral, a will, one uninvited guest", "weight": 1, "tags": ["shape"]},
+    {"value": "work scene, craft detail, an accident that is not one", "weight": 2, "tags": ["shape"]},
+    {"value": "a letter read aloud, a room divided, a decision deferred", "weight": 2, "tags": ["shape"]},
+    {"value": "two people avoid the same subject in different rooms", "weight": 2, "tags": ["shape"]},
+    {"value": "a repair that reveals a second, older fault", "weight": 1, "tags": ["shape"]}
+  ]
+}

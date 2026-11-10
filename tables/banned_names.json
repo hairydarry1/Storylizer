@@ -1,0 +1,33 @@
+{
+  "name": "banned_names",
+  "entries": [
+    {"value": "Elara", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Lyra", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Kael", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Voss", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Thorne", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Aria", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Seraphina", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Thalia", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Silas", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Cassian", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Orion", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Nyx", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Zephyr", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Isolde", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Freya", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Rowan", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Corvin", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Soren", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Ophelia", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Lysander", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Evander", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Amara", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Riven", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Draven", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Selene", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Aurelia", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Thaddeus", "weight": 1, "tags": ["ai-default"]},
+    {"value": "Marlowe", "weight": 1, "tags": ["ai-default"]}
+  ]
+}

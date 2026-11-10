@@ -1,0 +1,23 @@
+{
+  "name": "names_given",
+  "phonetic": {
+    "syllable_patterns": [
+      "{onset}{nucleus}",
+      "{onset}{nucleus}{coda}",
+      "{onset}{nucleus}{nucleus}"
+    ],
+    "onset": [
+      "b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "r", "s",
+      "sh", "t", "th", "v", "w", "z", "br", "cl", "dr", "fl", "gr", "kr", "sk", "tr"
+    ],
+    "nucleus": [
+      "a", "e", "i", "o", "u", "ae", "ai", "ea", "ei", "ia", "ie", "oa", "ou", "au", "y"
+    ],
+    "coda": [
+      "l", "m", "n", "r", "s", "th", "ve", "sh", "rk", "ld", "st", "ng", "ff", "ce"
+    ],
+    "min_syllables": 1,
+    "max_syllables": 3
+  },
+  "entries": []
+}

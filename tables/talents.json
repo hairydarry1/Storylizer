@@ -1,0 +1,19 @@
+{
+  "name": "talents",
+  "entries": [
+    {"value": "reads a room in three breaths", "weight": 2, "tags": ["social"]},
+    {"value": "remembers faces and the lies told with them", "weight": 2, "tags": ["social"]},
+    {"value": "repairs anything mechanical with a hairpin", "weight": 2, "tags": ["hands"]},
+    {"value": "can imitate any accent for one sentence", "weight": 1, "tags": ["voice"]},
+    {"value": "finds the one person at a party who needs to leave", "weight": 1, "tags": ["social"]},
+    {"value": "keeps a ledger of debts in her head", "weight": 2, "tags": ["mind"]},
+    {"value": "makes ordinary food taste like an occasion", "weight": 1, "tags": ["cozy"]},
+    {"value": "talks a nervous stranger calm", "weight": 2, "tags": ["social"]},
+    {"value": "draws a map of any building after one walk", "weight": 1, "tags": ["mind"]},
+    {"value": "whistles through her teeth to call animals", "weight": 1, "tags": ["body"]},
+    {"value": "lies so plainly that people believe her", "weight": 1, "tags": ["social"]},
+    {"value": "sings harmony without knowing the tune", "weight": 1, "tags": ["voice"]},
+    {"value": "works out how a machine fails before it does", "weight": 2, "tags": ["mind"]},
+    {"value": "waits without fidgeting, which unnerves people", "weight": 1, "tags": ["body"]}
+  ]
+}
