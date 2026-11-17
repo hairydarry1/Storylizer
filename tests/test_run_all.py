@@ -10,7 +10,7 @@ def stage_dir(root, name):
 
 
 def test_run_all_runs_through_stage_nine_and_stops_at_gate_one(workspace):
-    result = runner.run_all(workspace, "demo")
+    result = runner.run_all(workspace, "demo", skeleton=True)
 
     assert [run.stage.number for run in result.results] == list(range(1, 10))
     assert result.stopped_at == runner.resolve_stage("ensemble_check")
@@ -23,9 +23,9 @@ def test_run_all_runs_through_stage_nine_and_stops_at_gate_one(workspace):
 
 
 def test_run_all_is_idempotent_and_does_not_rerun_finished_stages(workspace):
-    runner.run_all(workspace, "demo")
+    runner.run_all(workspace, "demo", skeleton=True)
 
-    second = runner.run_all(workspace, "demo")
+    second = runner.run_all(workspace, "demo", skeleton=True)
 
     assert second.results == []
     assert second.stopped_at == runner.resolve_stage("ensemble_check")
@@ -33,10 +33,10 @@ def test_run_all_is_idempotent_and_does_not_rerun_finished_stages(workspace):
 
 
 def test_run_all_after_gate_one_builds_the_bible_and_outline_and_stops_at_gate_two(workspace):
-    runner.run_all(workspace, "demo")
+    runner.run_all(workspace, "demo", skeleton=True)
     runner.approve_gate(workspace, "demo", "1")
 
-    second = runner.run_all(workspace, "demo")
+    second = runner.run_all(workspace, "demo", skeleton=True)
 
     assert [run.stage.number for run in second.results] == [10, 11]
     assert second.stopped_at == runner.resolve_stage("outline")
@@ -46,13 +46,13 @@ def test_run_all_after_gate_one_builds_the_bible_and_outline_and_stops_at_gate_t
 
 
 def test_run_all_after_gate_two_runs_the_drafting_stages_then_names_m7(workspace):
-    runner.run_all(workspace, "demo")
+    runner.run_all(workspace, "demo", skeleton=True)
     runner.approve_gate(workspace, "demo", "1")
-    runner.run_all(workspace, "demo")
+    runner.run_all(workspace, "demo", skeleton=True)
     runner.approve_gate(workspace, "demo", "2")
 
     try:
-        runner.run_all(workspace, "demo")
+        runner.run_all(workspace, "demo", skeleton=True)
     except runner.StoryError as exc:
         assert "M7" in str(exc)
         assert "chapter_writer" in str(exc)
@@ -67,13 +67,13 @@ def test_run_all_skips_completed_early_stages_but_finishes_the_rest(workspace):
     for name in ("intake", "market_research", "reference_analysis"):
         runner.run_stage(workspace, "demo", name)
 
-    result = runner.run_all(workspace, "demo")
+    result = runner.run_all(workspace, "demo", skeleton=True)
 
     assert [run.stage.number for run in result.results] == list(range(4, 10))
 
 
 def test_cli_run_all_reports_each_stage_and_the_gate(workspace, capsys):
-    assert cli.main(["--root", str(workspace), "run", "all"]) == 0
+    assert cli.main(["--root", str(workspace), "run", "all", "--skeleton"]) == 0
 
     out = capsys.readouterr().out
     assert "01-intake" in out
@@ -84,10 +84,10 @@ def test_cli_run_all_reports_each_stage_and_the_gate(workspace, capsys):
 
 
 def test_cli_run_all_twice_still_stops_at_the_gate(workspace, capsys):
-    assert cli.main(["--root", str(workspace), "run", "all"]) == 0
+    assert cli.main(["--root", str(workspace), "run", "all", "--skeleton"]) == 0
     capsys.readouterr()
 
-    assert cli.main(["--root", str(workspace), "run", "all"]) == 0
+    assert cli.main(["--root", str(workspace), "run", "all", "--skeleton"]) == 0
     out = capsys.readouterr().out
     assert "gate 1" in out
     assert "nothing to run" in out.lower()

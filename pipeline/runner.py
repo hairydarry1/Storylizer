@@ -12,14 +12,16 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import yaml
 
 from . import schemas
 from .adapters import (
+    TIER_NAMES,
     LLMAdapter,
     SearchAdapter,
+    TieredLLMAdapter,
     create_llm_adapter,
     create_search_adapter,
 )
@@ -245,14 +247,44 @@ def load_config(root: Path | str, path: Path | str | None = None) -> Config:
 
 
 def load_llm_adapter(config: Config, **overrides: Any) -> LLMAdapter:
-    """Build the LLM adapter named in config.yaml, with optional per-run option overrides."""
+    """Build the LLM adapter named in config.yaml, with optional per-run option overrides.
+
+    An openai_compatible config may add `options.providers` to give the planner, writer and
+    checker their own base_url, model and api_key_env. Each tier inherits the base options
+    first, so only the differences need writing down.
+    """
     spec = config.adapters.get("llm")
     if not isinstance(spec, dict) or not spec.get("type"):
         raise StoryError("config needs adapters.llm.type (echo, manual or openai_compatible)")
 
+    type_name = str(spec["type"])
     options = dict(spec.get("options") or {})
     options.update(overrides)
-    return create_llm_adapter(str(spec["type"]), options)
+    providers = options.pop("providers", None)
+    if providers is None:
+        return create_llm_adapter(type_name, options)
+    if type_name != "openai_compatible":
+        raise StoryError(
+            "adapters.llm.options.providers is only supported by the openai_compatible adapter"
+        )
+    if not isinstance(providers, Mapping) or not providers:
+        raise StoryError("adapters.llm.options.providers must be a mapping of tier -> options")
+
+    unknown = [str(tier) for tier in providers if tier not in TIER_NAMES]
+    if unknown:
+        raise StoryError(
+            f"unknown model tier(s) in providers: {', '.join(unknown)} "
+            f"(use {', '.join(TIER_NAMES)})"
+        )
+
+    tier_adapters: dict[str, LLMAdapter] = {}
+    for tier, extra in providers.items():
+        if not isinstance(extra, Mapping):
+            raise StoryError(f"providers.{tier} must be a mapping of adapter options")
+        tier_adapters[str(tier)] = create_llm_adapter(type_name, {**options, **dict(extra)})
+
+    default = create_llm_adapter(type_name, options) if options.get("model") else None
+    return TieredLLMAdapter(tier_adapters, default=default)
 
 
 def load_search_adapter(config: Config) -> SearchAdapter:
@@ -548,18 +580,24 @@ def run_stage(
     llm: LLMAdapter | None = None,
     config: Config | None = None,
     search: SearchAdapter | None = None,
+    skeleton: bool = False,
+    max_calls: int | None = None,
 ) -> RunResult:
     """Run one stage that has a skill file, writing output.md, meta.json and its artifacts.
 
     Missing upstream stages are passed in as empty with a note. An approved stage is never
-    overwritten without `force`.
+    overwritten without `force`. Stages 11 and 12 are model-authored; `skeleton` asks for
+    their deterministic text instead (tests and dry runs, never a real book). Every model
+    call is counted in the project's per-day tally; `max_calls` caps this run.
     """
     from . import (
+        budget,
         character_creation,
         craft_targets,
         early_stages,
         ensemble,
         ledger,
+        model_json,
         model_notes,
         narrator_voice,
         outline,
@@ -591,6 +629,14 @@ def run_stage(
 
     config = config or load_config(root)
     llm = llm if llm is not None else load_llm_adapter(config)
+    if max_calls is not None and max_calls < 1:
+        raise StoryError("--max-calls must be at least 1")
+    if isinstance(llm, budget.BudgetedLLMAdapter):
+        counter = llm.counter
+    else:
+        counter = budget.CallCounter(project, limit=max_calls)
+        llm = budget.BudgetedLLMAdapter(llm, counter)
+    started_calls = counter.used
     concept = read_concept(project)
     upstream, notes = _upstream_outputs(project, stage)
 
@@ -763,6 +809,7 @@ def run_stage(
         meta["rolls"] = [roll.to_dict() for roll in roll_result.rolls]
 
         targets = craft_targets.load_targets(craft_targets.find_targets(project, root))
+        banned = model_json.load_banned_phrases(root / "tables")
         plan, report = outline.build_outline(
             concept,
             cast,
@@ -772,21 +819,36 @@ def run_stage(
             seed=config.seed,
             targets=targets,
             notes=notes,
+            skeleton=skeleton,
+            llm=llm,
+            skill=skill,
+            upstream=upstream,
+            banned=banned,
         )
-        (directory / "outline.json").write_text(
-            json.dumps(plan, indent=2) + "\n", encoding="utf-8"
-        )
-        additions = outline.build_rules_additions(plan, rules)
-        check = ledger.merge_rules(rules, additions)
-        if not check.ok:
-            notes.append(
-                "rules additions were dropped because they do not validate: "
-                + "; ".join(check.errors)
+        outline_file = directory / "outline.json"
+        additions_file = directory / "rules_additions.json"
+        if report.ok:
+            outline_file.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+            additions = outline.build_rules_additions(plan, rules)
+            check = ledger.merge_rules(rules, additions)
+            if not check.ok:
+                notes.append(
+                    "rules additions were dropped because they do not validate: "
+                    + "; ".join(check.errors)
+                )
+                additions = {"items": {}, "recipes": [], "locations": {}, "skills": {}}
+            additions_file.write_text(
+                json.dumps(additions, indent=2) + "\n", encoding="utf-8"
             )
-            additions = {"items": {}, "recipes": [], "locations": {}, "skills": {}}
-        (directory / "rules_additions.json").write_text(
-            json.dumps(additions, indent=2) + "\n", encoding="utf-8"
-        )
+            meta["files"] = ["output.md", "outline.json", "rules_additions.json", "meta.json"]
+        else:
+            for stale in (outline_file, additions_file):
+                if stale.exists():
+                    stale.unlink()
+                    notes.append(f"removed stale {stale.name} from an earlier run")
+            meta["files"] = ["output.md", "meta.json"]
+            status = FAILED
+            meta["error"] = "; ".join(report.errors)
 
         meta["outline"] = {
             "chapters": len(plan["chapters"]),
@@ -795,15 +857,9 @@ def run_stage(
             "background_threat": plan["background_threat"],
         }
         meta["validators"] = report.to_dict()
+        meta["model"] = report.model
         meta["craft_targets"] = {"path": str(targets.path) if targets is not None else None}
-        meta["files"] = ["output.md", "outline.json", "rules_additions.json", "meta.json"]
-        if not report.ok:
-            status = FAILED
-            meta["error"] = "; ".join(report.errors)
-
-        prompt = outline.outline_prompt(skill, concept, plan, report, upstream, notes)
-        model_text = model_notes.prose(llm, skill, prompt, notes)
-        output_text = outline.render_outline(plan, report, notes, model_text)
+        output_text = outline.render_outline(plan, report, notes)
 
     elif stage.name == "scene_card":
         outline_path = _stage_directory(project, STAGES[10]) / "outline.json"
@@ -815,20 +871,35 @@ def run_stage(
             raise StoryError(f"{outline_path} is not valid JSON: {exc}") from exc
 
         targets = craft_targets.load_targets(craft_targets.find_targets(project, root))
-        cards = scene_card.build_cards(plan, targets=targets, seed=config.seed)
-        (directory / "cards.json").write_text(
-            json.dumps(cards, indent=2) + "\n", encoding="utf-8"
+        banned = model_json.load_banned_phrases(root / "tables")
+        cards, report = scene_card.build_cards(
+            plan,
+            targets=targets,
+            seed=config.seed,
+            skeleton=skeleton,
+            llm=llm,
+            skill=skill,
+            banned=banned,
+            notes=notes,
         )
+        cards_file = directory / "cards.json"
+        if report.ok:
+            cards_file.write_text(json.dumps(cards, indent=2) + "\n", encoding="utf-8")
+            meta["files"] = ["output.md", "cards.json", "meta.json"]
+        else:
+            if cards_file.exists():
+                cards_file.unlink()
+                notes.append("removed stale cards.json from an earlier run")
+            meta["files"] = ["output.md", "meta.json"]
+            status = FAILED
+            meta["error"] = "; ".join(report.errors)
         meta["cards"] = {
             "chapters": len(cards["chapters"]),
             "scenes": sum(len(card["scenes"]) for card in cards["chapters"]),
         }
+        meta["model"] = report.model
         meta["craft_targets"] = {"path": str(targets.path) if targets is not None else None}
-        meta["files"] = ["output.md", "cards.json", "meta.json"]
-
-        prompt = scene_card.cards_prompt(skill, plan, cards, upstream, notes)
-        model_text = model_notes.prose(llm, skill, prompt, notes)
-        output_text = scene_card.render_cards(cards, notes, model_text)
+        output_text = scene_card.render_cards(cards, notes)
 
     elif stage.name == "narrator_voice":
         targets = craft_targets.load_targets(craft_targets.find_targets(project, root))
@@ -876,6 +947,10 @@ def run_stage(
     meta["status"] = status
     meta["finished_at"] = _utc_now()
     meta["notes"] = notes
+    meta["calls"] = counter.summary(started_at=started_calls)
+    quota = getattr(llm, "last_quota", None)
+    if quota:
+        meta["quota"] = quota
     meta_path = _write_meta(directory, meta)
 
     state = stage_state(project, stage)
@@ -897,20 +972,28 @@ def run_all(
     force: bool = False,
     llm: LLMAdapter | None = None,
     config: Config | None = None,
+    skeleton: bool = False,
+    max_calls: int | None = None,
 ) -> RunAllResult:
     """Run every built stage in order until the next human gate.
 
     Done stages are skipped, failed stages are retried, and an unbuilt stage stops the run
     with the milestone that will build it. The stop at a gate is not an error: the caller
-    reports it and waits for `approve_gate`.
+    reports it and waits for `approve_gate`. `max_calls` caps the whole run, not each stage.
     """
+    from . import budget
+
     root = Path(root)
     project = project_path(root, slug)
     if not project.is_dir():
         raise StoryError(f"project not found: {project} (run `story init {slug}`)")
 
+    if max_calls is not None and max_calls < 1:
+        raise StoryError("--max-calls must be at least 1")
     config = config or load_config(root)
     llm = llm if llm is not None else load_llm_adapter(config)
+    if not isinstance(llm, budget.BudgetedLLMAdapter):
+        llm = budget.BudgetedLLMAdapter(llm, budget.CallCounter(project, limit=max_calls))
     try:
         search = load_search_adapter(config)
     except StoryError:
@@ -945,6 +1028,7 @@ def run_all(
             llm=llm,
             config=config,
             search=search,
+            skeleton=skeleton,
         )
         outcome.results.append(result)
         if result.status == FAILED:

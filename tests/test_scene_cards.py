@@ -23,8 +23,8 @@ def read_meta(root, name=STAGE12):
 def build(root):
     runner.run_stage(root, "demo", "character_creation")
     runner.run_stage(root, "demo", "series_bible")
-    runner.run_stage(root, "demo", "outline")
-    return runner.run_stage(root, "demo", "scene_card")
+    runner.run_stage(root, "demo", "outline", skeleton=True)
+    return runner.run_stage(root, "demo", "scene_card", skeleton=True)
 
 
 def cards_data(root):
@@ -49,6 +49,7 @@ def test_scene_cards_write_one_card_per_chapter(workspace):
     assert (directory / "cards.json").is_file()
     assert (directory / "meta.json").is_file()
     assert result.meta["files"] == ["output.md", "cards.json", "meta.json"]
+    assert result.meta["model"]["mode"] == "skeleton"
 
     outline = json.loads((stage_dir(workspace, STAGE11) / "outline.json").read_text(encoding="utf-8"))
     cards = cards_data(workspace)["chapters"]
@@ -86,11 +87,12 @@ def test_scene_cards_need_the_outline(workspace):
         runner.run_stage(workspace, "demo", "scene_card")
 
 
-def test_the_echo_adapter_is_a_note_not_a_failure(workspace):
+def test_the_skeleton_does_not_call_the_model(workspace):
     result = build(workspace)
 
     assert result.status == runner.DONE
-    assert any("no prose" in note.lower() for note in result.notes)
+    assert result.meta["model"]["mode"] == "skeleton"
+    assert any("skeleton" in note.lower() for note in result.notes)
 
 
 def test_cards_render_the_turn_into_the_markdown(workspace):

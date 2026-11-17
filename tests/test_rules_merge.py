@@ -147,7 +147,7 @@ def test_format_merge_diff_prints_plus_and_equals_lines():
 def build_bible_and_outline(root):
     runner.run_stage(root, "demo", "character_creation")
     runner.run_stage(root, "demo", "series_bible")
-    return runner.run_stage(root, "demo", "outline")
+    return runner.run_stage(root, "demo", "outline", skeleton=True)
 
 
 def rules_path(root):

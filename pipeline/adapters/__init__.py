@@ -11,6 +11,7 @@ from .manual import ManualAdapter, ManualPending
 from .manual_search import ManualSearchAdapter, SearchPending
 from .openai_compatible import OpenAICompatibleAdapter
 from .stub_search import StubSearchAdapter
+from .tiered import TIER_NAMES, TieredLLMAdapter
 from .wikipedia import WikipediaAdapter
 
 LLM_ADAPTERS: dict[str, type[LLMAdapter]] = {
@@ -68,6 +69,8 @@ __all__ = [
     "SearchPending",
     "SearchResult",
     "StubSearchAdapter",
+    "TIER_NAMES",
+    "TieredLLMAdapter",
     "WikipediaAdapter",
     "create_llm_adapter",
     "create_search_adapter",

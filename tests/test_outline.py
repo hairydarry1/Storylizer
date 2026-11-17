@@ -8,6 +8,7 @@ import pytest
 import yaml
 
 from pipeline import outline, runner, schemas
+from pipeline.adapters.echo import EchoAdapter
 
 STAGE8 = "08-character_creation"
 STAGE10 = "10-series_bible"
@@ -36,7 +37,7 @@ def write_concept(root, **values):
 def build_outline_project(root):
     runner.run_stage(root, "demo", "character_creation")
     runner.run_stage(root, "demo", "series_bible")
-    return runner.run_stage(root, "demo", "outline")
+    return runner.run_stage(root, "demo", "outline", skeleton=True)
 
 
 def outline_data(root):
@@ -77,6 +78,7 @@ def test_outline_writes_markdown_json_and_rules_additions(workspace):
     assert result.meta["validators"]["ok"] is True
     assert all(result.meta["validators"]["checks"].values())
     assert result.meta["outline"]["chapters"] == len(outline_data(workspace)["chapters"])
+    assert result.meta["model"]["mode"] == "skeleton"
 
 
 def test_chapter_count_derives_from_target_words(workspace):
@@ -116,10 +118,14 @@ def test_every_chapter_carries_its_shape_imagery_tension_and_actors(workspace):
         assert chapter["imagery"] in imagery
         assert 1 <= chapter["tension"] <= 5
         assert chapter["words"] >= 1
+        assert chapter["hook"].strip()
+        assert chapter["ends_on"].strip()
         assert chapter["beats"], "every chapter needs beats"
         for beat in chapter["beats"]:
-            assert beat["who_acts"] in cast_ids
-            assert beat["text"].strip()
+            assert beat["actor"] in cast_ids
+            assert beat["action"].strip()
+            assert beat["obstacle"].strip()
+            assert beat["outcome"].strip()
             assert beat["kind"] in {"setup", "complication", "reversal", "resolution", "threat"}
 
 
@@ -162,10 +168,15 @@ def test_missing_upstream_outputs_are_notes_not_failures(workspace):
     assert result.status == runner.NEEDS_APPROVAL
 
 
-def test_the_echo_adapter_is_a_note_not_a_failure(workspace):
-    result = build_outline_project(workspace)
+def test_the_skeleton_does_not_call_the_model(workspace):
+    runner.run_stage(workspace, "demo", "character_creation")
+    runner.run_stage(workspace, "demo", "series_bible")
+    writer = EchoAdapter()
 
-    assert any("no prose" in note.lower() for note in result.notes)
+    result = runner.run_stage(workspace, "demo", "outline", skeleton=True, llm=writer)
+
+    assert writer.calls == []
+    assert any("skeleton" in note.lower() for note in result.notes)
     assert result.status == runner.NEEDS_APPROVAL
 
 
@@ -173,7 +184,7 @@ def test_the_outline_is_deterministic(workspace):
     build_outline_project(workspace)
     first = (stage_dir(workspace, STAGE11) / "outline.json").read_text(encoding="utf-8")
 
-    runner.run_stage(workspace, "demo", "outline")
+    runner.run_stage(workspace, "demo", "outline", skeleton=True)
     second = (stage_dir(workspace, STAGE11) / "outline.json").read_text(encoding="utf-8")
 
     assert first == second
@@ -204,17 +215,42 @@ def make_outline(chapters=8, *, threat_every=2, resolution_actor="protagonist", 
     for number in range(1, chapters + 1):
         actor = secondaries[(number - 2) % len(secondaries)] if number >= 2 else "protagonist"
         beats = [
-            {"id": f"ch{number:02d}-b1", "kind": "setup", "who_acts": actor, "text": "setup"},
-            {"id": f"ch{number:02d}-b2", "kind": "reversal", "who_acts": "protagonist", "text": "turn"},
+            {
+                "id": f"ch{number:02d}-b1",
+                "kind": "setup",
+                "actor": actor,
+                "action": f"setup {number}",
+                "obstacle": "obstacle",
+                "outcome": "outcome",
+            },
+            {
+                "id": f"ch{number:02d}-b2",
+                "kind": "reversal",
+                "actor": "protagonist",
+                "action": f"turn {number}",
+                "obstacle": "obstacle",
+                "outcome": "outcome",
+            },
             {
                 "id": f"ch{number:02d}-b3",
                 "kind": "resolution",
-                "who_acts": resolution_actor,
-                "text": "resolution",
+                "actor": resolution_actor,
+                "action": f"resolution {number}",
+                "obstacle": "obstacle",
+                "outcome": "outcome",
             },
         ]
         if threat_every and number % threat_every == 0:
-            beats.append({"id": f"ch{number:02d}-b4", "kind": "threat", "who_acts": actor, "text": "threat"})
+            beats.append(
+                {
+                    "id": f"ch{number:02d}-b4",
+                    "kind": "threat",
+                    "actor": actor,
+                    "action": f"threat {number}",
+                    "obstacle": "obstacle",
+                    "outcome": "outcome",
+                }
+            )
         data["chapters"].append(
             {
                 "number": number,
@@ -225,6 +261,7 @@ def make_outline(chapters=8, *, threat_every=2, resolution_actor="protagonist", 
                 "words": 2500,
                 "complication": None,
                 "illustration": None,
+                "threat": bool(threat_every and number % threat_every == 0),
                 "beats": beats,
             }
         )
@@ -253,10 +290,17 @@ def test_two_secondaries_debuting_in_one_chapter_fail(sheet):
     data = make_outline()
     for chapter in data["chapters"]:
         for beat in chapter["beats"]:
-            if beat["who_acts"] == "b":
-                beat["who_acts"] = "a"
+            if beat["actor"] == "b":
+                beat["actor"] = "a"
     data["chapters"][1]["beats"].append(
-        {"id": "ch02-bx", "kind": "threat", "who_acts": "b", "text": "debut"}
+        {
+            "id": "ch02-bx",
+            "kind": "threat",
+            "actor": "b",
+            "action": "debut",
+            "obstacle": "obstacle",
+            "outcome": "outcome",
+        }
     )
 
     report = outline.validate_outline(data, make_cast(sheet))
@@ -270,8 +314,8 @@ def test_a_secondary_that_never_appears_fails(sheet):
     data = make_outline()
     for chapter in data["chapters"]:
         for beat in chapter["beats"]:
-            if beat["who_acts"] == "b":
-                beat["who_acts"] = "a"
+            if beat["actor"] == "b":
+                beat["actor"] = "a"
 
     report = outline.validate_outline(data, make_cast(sheet))
 

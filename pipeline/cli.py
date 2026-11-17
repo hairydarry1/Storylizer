@@ -54,6 +54,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="stage number, name, folder name (8, character_creation) or all",
     )
     run.add_argument("--force", action="store_true", help="allow re-running an approved stage")
+    run.add_argument(
+        "--skeleton",
+        action="store_true",
+        help="stages 11-12: use the deterministic skeleton instead of model JSON (tests and dry runs)",
+    )
+    run.add_argument(
+        "--max-calls",
+        type=int,
+        default=None,
+        help=(
+            "cap the model calls this run may make; the per-day total is saved in the project "
+            "(projects/<slug>/calls.json)"
+        ),
+    )
     run.add_argument("--project", "-p", default=None, help="project slug (default: the only project)")
 
     approve = commands.add_parser("approve", help="pass a human gate")
@@ -218,10 +232,15 @@ def _cmd_run_all(root: Path, args: argparse.Namespace) -> int:
         _resolve_slug(root, args.project),
         force=args.force,
         config=config,
+        skeleton=args.skeleton,
+        max_calls=args.max_calls,
     )
 
     for run in result.results:
         print(f"{run.stage.dir_name}: {run.status} -> {run.output_path}")
+        calls = run.meta.get("calls") or {}
+        if calls:
+            print(f"  model calls: {calls.get('run', 0)} (today: {calls.get('today', 0)})")
         if run.status == runner.FAILED:
             print(f"  see {run.meta_path}", file=sys.stderr)
     if not result.results:
@@ -248,17 +267,29 @@ def _cmd_run(root: Path, args: argparse.Namespace) -> int:
         args.stage,
         force=args.force,
         config=config,
+        skeleton=args.skeleton,
+        max_calls=args.max_calls,
     )
 
     print(f"stage:  {result.stage.dir_name}")
     print(f"status: {result.status}")
     print(f"output: {result.output_path}")
+    calls = result.meta.get("calls") or {}
+    if calls:
+        limit = calls.get("limit")
+        print(
+            f"model calls: {calls.get('run', 0)} (today: {calls.get('today', 0)},"
+            f" limit: {limit if limit is not None else 'none'})"
+        )
     for note in result.notes:
         print(f"note: {note}")
     for issue in result.issues:
         print(f"issue: {issue.code}: {issue.detail}")
 
     if result.status == runner.FAILED:
+        detail = result.meta.get("error")
+        if detail:
+            print(f"reason: {detail}", file=sys.stderr)
         print(
             f"error: stage {result.stage.dir_name} failed; see {result.meta_path}",
             file=sys.stderr,
