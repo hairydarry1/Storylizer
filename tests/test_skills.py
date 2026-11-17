@@ -35,6 +35,10 @@ REQUIRED_SECTIONS = ("Purpose", "Inputs", "Steps", "Output format", "Do not", "S
         "tone_ceiling",
         "character_creation",
         "ensemble_check",
+        "series_bible",
+        "outline",
+        "scene_card",
+        "narrator_voice",
     ],
 )
 def test_the_skill_files_parse(name):
@@ -51,6 +55,10 @@ def test_the_skill_files_parse(name):
         "tone_ceiling",
         "character_creation",
         "ensemble_check",
+        "series_bible",
+        "outline",
+        "scene_card",
+        "narrator_voice",
     ].index(name) + 1
     assert skill.model_tier in ("planner", "writer", "checker", "none")
     for key in REQUIRED_FRONTMATTER:

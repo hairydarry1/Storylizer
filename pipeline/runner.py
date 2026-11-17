@@ -25,14 +25,10 @@ from .adapters import (
 )
 
 GATE_STAGE_NUMBERS = {1: 9, 2: 11, 3: 17}
-GATE_MILESTONES = {2: "M6", 3: "M8"}
+GATE_MILESTONES = {3: "M8"}
 
 #: stage -> milestone that writes its skill, for the "not built yet" message
 STAGE_MILESTONES = {
-    10: "M5",
-    11: "M5",
-    12: "M6",
-    13: "M6",
     14: "M7",
     15: "M7",
     16: "M7",
@@ -558,7 +554,18 @@ def run_stage(
     Missing upstream stages are passed in as empty with a note. An approved stage is never
     overwritten without `force`.
     """
-    from . import character_creation, early_stages, ensemble, randomizer
+    from . import (
+        character_creation,
+        craft_targets,
+        early_stages,
+        ensemble,
+        ledger,
+        model_notes,
+        narrator_voice,
+        outline,
+        randomizer,
+        scene_card,
+    )
 
     root = Path(root)
     stage = resolve_stage(reference)
@@ -682,6 +689,176 @@ def run_stage(
             meta["error"] = "; ".join(f"{issue.code}: {issue.detail}" for issue in issues)
         meta["files"] = ["output.md", "meta.json"]
 
+    elif stage.name == "series_bible":
+        cast_path = _stage_directory(project, STAGES[7]) / "cast.json"
+        if not cast_path.is_file():
+            raise StoryError(
+                "run `story run character_creation` first: " f"no cast at {cast_path}"
+            )
+        try:
+            cast = schemas.load_cast(cast_path)
+        except schemas.SchemaError as exc:
+            raise StoryError(f"invalid cast at {cast_path}: {exc}") from exc
+
+        rules = ledger.build_rules(concept, cast, notes=notes)
+        ledger.save_rules(rules, directory / "rules.json")
+        meta["system_type"] = rules["system_type"]
+        meta["rules"] = {
+            "system_type": rules["system_type"],
+            "max_level": rules["xp"]["max_level"],
+            "skills": len(rules["skills"]),
+            "items": len(rules["items"]),
+            "recipes": len(rules["recipes"]),
+            "locations": len(rules["locations"]),
+        }
+
+        ledger_path = project / "ledger.json"
+        story: dict[str, Any] | None = None
+        if ledger_path.is_file():
+            try:
+                story = ledger.load_ledger(ledger_path)
+            except ledger.LedgerError as exc:
+                notes.append(
+                    f"existing ledger.json is unreadable; rebuilt from the cast ({exc})"
+                )
+        if story is not None and (story["chapter"] or story["applied_deltas"] or story["events"]):
+            notes.append(
+                f"kept the existing ledger.json (chapter {story['chapter']}, "
+                f"{len(story['applied_deltas'])} delta(s) applied)"
+            )
+        else:
+            story = ledger.initial_ledger(cast, rules)
+        ledger_path = ledger.save_ledger(story, ledger_path)
+        meta["ledger"] = str(ledger_path.relative_to(project)).replace("\\", "/")
+
+        prompt = ledger.bible_prompt(skill, concept, cast, rules, upstream, notes)
+        model_text = ledger.model_bible_notes(llm, skill, prompt, notes)
+        output_text = ledger.render_bible(
+            concept, cast, rules, slug=slug, notes=notes, model_text=model_text
+        )
+        (directory / "bible.md").write_text(output_text.rstrip() + "\n", encoding="utf-8")
+        meta["files"] = ["output.md", "bible.md", "rules.json", "meta.json"]
+
+    elif stage.name == "outline":
+        cast_path = _stage_directory(project, STAGES[7]) / "cast.json"
+        if not cast_path.is_file():
+            raise StoryError(
+                "run `story run character_creation` first: " f"no cast at {cast_path}"
+            )
+        try:
+            cast = schemas.load_cast(cast_path)
+        except schemas.SchemaError as exc:
+            raise StoryError(f"invalid cast at {cast_path}: {exc}") from exc
+
+        rules_path = _stage_directory(project, STAGES[9]) / "rules.json"
+        if not rules_path.is_file():
+            raise StoryError(f"run `story run series_bible` first: no rules at {rules_path}")
+        try:
+            rules = ledger.load_rules(rules_path)
+        except ledger.RulesError as exc:
+            raise StoryError(f"invalid rules at {rules_path}: {exc}") from exc
+
+        rnd = randomizer.Randomizer(root, slug, config)
+        roll_result = rnd.roll_stage(11)
+        meta["rolls"] = [roll.to_dict() for roll in roll_result.rolls]
+
+        targets = craft_targets.load_targets(craft_targets.find_targets(project, root))
+        plan, report = outline.build_outline(
+            concept,
+            cast,
+            rules,
+            roll_result.rolls,
+            rnd.tables,
+            seed=config.seed,
+            targets=targets,
+            notes=notes,
+        )
+        (directory / "outline.json").write_text(
+            json.dumps(plan, indent=2) + "\n", encoding="utf-8"
+        )
+        additions = outline.build_rules_additions(plan, rules)
+        check = ledger.merge_rules(rules, additions)
+        if not check.ok:
+            notes.append(
+                "rules additions were dropped because they do not validate: "
+                + "; ".join(check.errors)
+            )
+            additions = {"items": {}, "recipes": [], "locations": {}, "skills": {}}
+        (directory / "rules_additions.json").write_text(
+            json.dumps(additions, indent=2) + "\n", encoding="utf-8"
+        )
+
+        meta["outline"] = {
+            "chapters": len(plan["chapters"]),
+            "target_words": plan["target_words"],
+            "words_per_chapter": plan["words_per_chapter"],
+            "background_threat": plan["background_threat"],
+        }
+        meta["validators"] = report.to_dict()
+        meta["craft_targets"] = {"path": str(targets.path) if targets is not None else None}
+        meta["files"] = ["output.md", "outline.json", "rules_additions.json", "meta.json"]
+        if not report.ok:
+            status = FAILED
+            meta["error"] = "; ".join(report.errors)
+
+        prompt = outline.outline_prompt(skill, concept, plan, report, upstream, notes)
+        model_text = model_notes.prose(llm, skill, prompt, notes)
+        output_text = outline.render_outline(plan, report, notes, model_text)
+
+    elif stage.name == "scene_card":
+        outline_path = _stage_directory(project, STAGES[10]) / "outline.json"
+        if not outline_path.is_file():
+            raise StoryError(f"run `story run outline` first: no outline at {outline_path}")
+        try:
+            plan = json.loads(outline_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise StoryError(f"{outline_path} is not valid JSON: {exc}") from exc
+
+        targets = craft_targets.load_targets(craft_targets.find_targets(project, root))
+        cards = scene_card.build_cards(plan, targets=targets, seed=config.seed)
+        (directory / "cards.json").write_text(
+            json.dumps(cards, indent=2) + "\n", encoding="utf-8"
+        )
+        meta["cards"] = {
+            "chapters": len(cards["chapters"]),
+            "scenes": sum(len(card["scenes"]) for card in cards["chapters"]),
+        }
+        meta["craft_targets"] = {"path": str(targets.path) if targets is not None else None}
+        meta["files"] = ["output.md", "cards.json", "meta.json"]
+
+        prompt = scene_card.cards_prompt(skill, plan, cards, upstream, notes)
+        model_text = model_notes.prose(llm, skill, prompt, notes)
+        output_text = scene_card.render_cards(cards, notes, model_text)
+
+    elif stage.name == "narrator_voice":
+        targets = craft_targets.load_targets(craft_targets.find_targets(project, root))
+        voice = narrator_voice.build_voice(
+            concept,
+            targets=targets,
+            tables_dir=root / "tables",
+            seed=config.seed,
+            notes=notes,
+        )
+        prompt = narrator_voice.voice_prompt(skill, concept, voice, upstream, notes)
+        model_text = model_notes.prose(llm, skill, prompt, notes)
+        output_text = narrator_voice.render_voice(
+            voice,
+            title=str(concept.get("working_title") or "").strip() or slug,
+            notes=notes,
+            model_text=model_text,
+        )
+        (directory / "voice.md").write_text(output_text.rstrip() + "\n", encoding="utf-8")
+        meta["voice"] = {
+            "pov": voice["pov"],
+            "tense": voice["tense"],
+            "sentence_words": voice["sentence_words"],
+            "paragraph_sentences": voice["paragraph_sentences"],
+            "dialogue_ratio": voice["dialogue_ratio"],
+            "banned_phrases": len(voice["banned_phrases"]),
+        }
+        meta["craft_targets"] = voice["craft_targets"]
+        meta["files"] = ["output.md", "voice.md", "meta.json"]
+
     else:
         prompt = (
             f"{skill.body}\n\n## This project\n\n"
@@ -794,7 +971,7 @@ def approve_gate(
     *,
     force: bool = False,
 ) -> ApproveResult:
-    """Pass a human gate. Gate 1 is the cast gate after stage 9."""
+    """Pass a human gate. Gate 1 is the cast after stage 9; gate 2 the outline after stage 11."""
     try:
         number = int(str(gate).strip())
     except ValueError:
@@ -807,7 +984,7 @@ def approve_gate(
         raise StoryError(f"project not found: {project} (run `story init {slug}`)")
 
     stage = next(candidate for candidate in STAGES if candidate.number == GATE_STAGE_NUMBERS[number])
-    if stage.number > 9:
+    if number == 3:
         raise StoryError(
             f"gate {number} waits on stage {stage.dir_name} ({GATE_MILESTONES[number]}); not built yet"
         )
@@ -823,7 +1000,7 @@ def approve_gate(
     if state.status == FAILED:
         if not force:
             raise StoryError(
-                f"stage {stage.dir_name} failed ({state.error or 'checks flagged the cast'}); "
+                f"stage {stage.dir_name} failed ({state.error or 'its checks failed'}); "
                 "fix it and re-run, or approve with --force"
             )
         meta["status"] = DONE

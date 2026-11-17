@@ -32,17 +32,35 @@ def test_run_all_is_idempotent_and_does_not_rerun_finished_stages(workspace):
     assert "gate" in second.reason.lower()
 
 
-def test_run_all_after_gate_one_names_the_next_unbuilt_milestone(workspace):
+def test_run_all_after_gate_one_builds_the_bible_and_outline_and_stops_at_gate_two(workspace):
     runner.run_all(workspace, "demo")
     runner.approve_gate(workspace, "demo", "1")
+
+    second = runner.run_all(workspace, "demo")
+
+    assert [run.stage.number for run in second.results] == [10, 11]
+    assert second.stopped_at == runner.resolve_stage("outline")
+    assert "gate 2" in second.reason
+    assert (stage_dir(workspace, "10-series_bible") / "bible.md").is_file()
+    assert (stage_dir(workspace, "11-outline") / "outline.json").is_file()
+
+
+def test_run_all_after_gate_two_runs_the_drafting_stages_then_names_m7(workspace):
+    runner.run_all(workspace, "demo")
+    runner.approve_gate(workspace, "demo", "1")
+    runner.run_all(workspace, "demo")
+    runner.approve_gate(workspace, "demo", "2")
 
     try:
         runner.run_all(workspace, "demo")
     except runner.StoryError as exc:
-        assert "M5" in str(exc)
-        assert "series_bible" in str(exc)
+        assert "M7" in str(exc)
+        assert "chapter_writer" in str(exc)
     else:  # pragma: no cover - the assertion above is the point
-        raise AssertionError("run all should name the milestone that builds stage 10")
+        raise AssertionError("run all should name the milestone that builds stage 14")
+
+    for name in ("12-scene_card", "13-narrator_voice"):
+        assert (stage_dir(workspace, name) / "output.md").is_file()
 
 
 def test_run_all_skips_completed_early_stages_but_finishes_the_rest(workspace):

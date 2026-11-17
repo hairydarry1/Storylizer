@@ -4,11 +4,12 @@ Turns a short concept brief into a finished novel through small Markdown "skills
 randomness and automatic quality gates. The target design is in `BUILD_SPEC.md`; this README
 describes what actually works today.
 
-**Status: milestone M4.** Scaffold, config, the three LLM adapters, four search adapters,
+**Status: milestone M6.** Scaffold, config, the three LLM adapters, four search adapters,
 `story init`, `story status`, the seeded randomizer (`story roll`, `story lock`, `story reroll`),
-skills 1–9, `story run <stage>`, `story run all` and `story approve` (gate 1). Stages 10+ are
-not built yet, so `check` and `export` still print the milestone that will build them and exit
-with code 2.
+skills 1–13, `story run <stage>`, `story run all`, `story approve` (gates 1 and 2), the series
+bible (stage 10), the ledger gate (`story ledger show`, `story ledger validate`), the outline,
+scene cards, the narrator voice and `story rules merge`. Stages 14+ are not built yet, so
+`check` and `export` still print the milestone that will build them and exit with code 2.
 
 ## Requirements
 
@@ -16,7 +17,7 @@ Python 3.11+, plus `pyyaml`, `requests` and `pytest`. Nothing else.
 
 ```bash
 pip install -e .        # gives you the `story` command
-python -m pytest        # 222 tests
+python -m pytest        # 313 tests
 ```
 
 Without installing, `python -m pipeline.cli` works from the project folder.
@@ -36,13 +37,24 @@ story run all                 # stages 1-9, stopping at human gate 1
 story run character_creation   # or run one stage: stage 8
 story run ensemble_check       # stage 9: code checks + checker-tier judgment
 story approve 1               # human gate 1: approve concept + cast
+
+story run series_bible        # stage 10: bible.md, rules.json, initial ledger.json
+story ledger show             # level, xp, inventory, skills and events per character
+story ledger validate ch03.json   # the delta gate for one chapter
+
+story run outline             # stage 11: outline.json + rules_additions.json (gate 2)
+story approve 2               # human gate 2: approve the outline
+story run scene_card          # stage 12: cards.json, goal / conflict / turn per scene
+story run narrator_voice      # stage 13: voice.md + tables/banned_phrases.json
+story rules merge             # merge rules_additions.json and print the diff
 ```
 
 `story run` writes `stages/NN-<name>/output.md` and `meta.json` (`cast.json` too for stage 8).
 An approved stage is never overwritten without `--force`, and running a stage that has no
 `skills/<name>.md` file names the milestone that builds it. `story run all` skips done
 stages, retries a failed one, runs stages 1–9 in order and stops at gate 1 with
-`story approve 1` as the next command; after gate 1 the next unbuilt stage reports M5.
+`story approve 1` as the next command; after gate 1 it runs stages 10–11 and stops at gate 2
+(`story approve 2`), then runs stages 12–13 before the next unbuilt stage reports M7.
 
 Stages 1–7 each write `output.md` and `meta.json` with deterministic structure first:
 
@@ -75,6 +87,42 @@ wants, a flaw that exists only to be fixed, and stereotypes go to the checker ti
 flagged cast leaves stage 9 `failed`; `story approve 1` refuses until it is fixed, or passes
 with `--force`. A checker that cannot answer is recorded as a note, never as a silent pass.
 
+`series_bible` is stage 10. It writes `bible.md` (world rules, system and progression, cast,
+locations and travel, timeline) and `rules.json` (the machine-readable half: `system_type`
+none / litrpg / magic / other, the XP curve and level thresholds, skill unlocks and
+prerequisites, item sources and recipes, and a location graph with travel times), then seeds
+`projects/<slug>/ledger.json` from `cast.json`. A story without a stat system is valid:
+`system_type: none` skips the XP, level and skill checks. An existing ledger with chapters or
+applied deltas is kept, never reset.
+
+`story ledger show` prints each entity's level, xp, location, inventory, skills and the
+recorded events. `story ledger validate <delta.json>` runs the ledger gate: a delta is a list
+of operations (`add_item`, `remove_item`, `xp_gain`, `level_up`, `skill_unlock`, `move`,
+`event`) and every one has to be earned. An item needs a recorded event or a recipe whose
+ingredients are present, a level-up needs the XP threshold, a skill unlock needs its level and
+prerequisites, a move needs an edge in the location graph, and an unknown entity is an error.
+A rejected delta exits 1 with its reasons, and a delta is applied once, so replaying it is
+rejected.
+
+`outline` is stage 11, behind gate 2. The chapter count comes from `target_words` (at least
+eight chapters, and one per secondary cast member plus one); each chapter gets a shape from
+the randomizer's `chapter_shapes` table, an imagery domain, a tension from 1 to 5, beats with
+one named actor each, a complication card every third chapter and an optional illustration
+slot on the loud chapters. `craft_targets.json`, when it exists, sets the words per chapter
+inside its range. Five code validators gate the stage: no more than two chapters in a row
+share a shape, every secondary debuts in a different chapter, the background threat reaches
+at least 40% of chapters, the protagonist acts in at least 70% of resolution beats, and the
+tension curve is not monotonic. `story approve 2` refuses a failed outline unless `--force`.
+The stage also writes `rules_additions.json`; `story rules merge` validates those entries
+against the rules schema and merges them additively, never overwriting an existing entry,
+printing a `+` / `=` diff first.
+
+`scene_card` is stage 12: one card per outline chapter with two to four scenes, each carrying
+a goal, a conflict and a turn. `narrator_voice` is stage 13: `voice.md` with the POV, tense,
+sentence and paragraph targets (from `craft_targets.json` when present), a dialogue subtext
+guide and the banned-phrase list, plus the starter `tables/banned_phrases.json` when the
+table is missing. Neither stage has a human gate.
+
 `story roll` prints the stage header, the chaos count, and a `key | table | value` table.
 Rolls are deterministic: the RNG seed is `sha256("{seed}|{stage}|{key}")`, so the same
 `config.yaml` seed gives the same book constraints on any machine, in any Python process.
@@ -103,7 +151,7 @@ A project is a folder:
 projects/my-book/
   concept.yaml     # the brief you fill in
   rolls.json       # randomizer audit log, append-only
-  ledger.json      # story state (empty until M5)
+  ledger.json      # story state (seeded by stage 10)
   inputs/          # market_notes.md and other pasted research
   stages/          # NN-<stage>/output.md + meta.json per stage (+ cast.json at stage 8)
   chapters/        # ch01.md, ch02.md, ...
@@ -198,8 +246,15 @@ pipeline/
   ensemble.py             section 8 checks: code first, checker model second
   early_stages.py         deterministic builders for stages 1-7 and market-note parsing
   character_creation.py   deterministic cast draft, model cast parsing, rendering
+  ledger.py               rules.json, ledger.json, delta validation, the stage 10 bible
+  outline.py              stage 11: chapters, validators, rules additions
+  scene_card.py           stage 12: goal / conflict / turn cards
+  narrator_voice.py       stage 13: voice.md and the banned-phrase table
+  craft_targets.py        craft_targets.json ranges, sampled with the run seed
+  model_notes.py          the optional model-prose layer for the M6 stages
   adapters/               base, echo, manual, openai_compatible, stub_search, manual_search,
                           wikipedia, generic_json
+  gates/                  ledger_check (M5); linter, rubric and originality come later
 skills/                   one Markdown skill per built stage (with YAML frontmatter)
 tables/                   starter randomizer tables (JSON; used.json is local memory)
 tests/                    one module per acceptance test group

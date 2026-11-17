@@ -35,7 +35,7 @@ def test_run_then_approve_passes_the_cast_gate(workspace, capsys):
 
 
 def test_run_reports_a_stage_without_a_skill(workspace, capsys):
-    assert cli.main(["--root", str(workspace), "run", "series_bible"]) == 1
+    assert cli.main(["--root", str(workspace), "run", "chapter_writer"]) == 1
     assert "not built" in capsys.readouterr().err
 
 

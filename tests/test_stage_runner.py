@@ -226,10 +226,10 @@ def test_approve_refuses_a_failed_ensemble_check(workspace, bad_cast):
 
 
 def test_later_gates_name_their_milestone(workspace):
-    with pytest.raises(runner.StoryError, match="M6"):
-        runner.approve_gate(workspace, "demo", "2")
+    with pytest.raises(runner.StoryError, match="M8"):
+        runner.approve_gate(workspace, "demo", "3")
 
 
 def test_stages_without_a_skill_are_not_runnable(workspace):
     with pytest.raises(runner.StoryError, match="not built"):
-        runner.run_stage(workspace, "demo", "series_bible")
+        runner.run_stage(workspace, "demo", "chapter_writer")

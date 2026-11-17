@@ -1,0 +1,17 @@
+{
+  "name": "banned_phrases",
+  "entries": [
+    {"value": "a testament to", "weight": 1, "tags": ["ai-tell"]},
+    {"value": "tapestry of", "weight": 1, "tags": ["ai-tell"]},
+    {"value": "couldn't help but", "weight": 1, "tags": ["ai-tell"]},
+    {"value": "little did she know", "weight": 1, "tags": ["ai-tell"]},
+    {"value": "little did he know", "weight": 1, "tags": ["ai-tell"]},
+    {"value": "in that moment", "weight": 1, "tags": ["ai-tell"]},
+    {"value": "a shiver ran down her spine", "weight": 1, "tags": ["ai-tell"]},
+    {"value": "let out a breath she didn't know she was holding", "weight": 1, "tags": ["ai-tell"]},
+    {"value": "the air was thick with", "weight": 1, "tags": ["ai-tell"]},
+    {"value": "eyes widened", "weight": 1, "tags": ["ai-tell"]},
+    {"value": "barely above a whisper", "weight": 1, "tags": ["ai-tell"]},
+    {"value": "a single tear rolled down", "weight": 1, "tags": ["ai-tell"]}
+  ]
+}

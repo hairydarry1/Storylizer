@@ -1,18 +1,19 @@
 """`story` command line (see BUILD_SPEC.md section 9).
 
 M1 built `init`/`status`, M2 the randomizer commands, M3 `run` for stages with a skill
-file and `approve` for human gate 1. The remaining commands name the milestone that will
-build them.
+file and `approve` for human gate 1, M5 the series bible and `ledger show|validate`. The
+remaining commands name the milestone that will build them.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Sequence
 
-from . import randomizer, runner
+from . import ledger, randomizer, runner
 from .adapters import AdapterError
 
 #: command -> milestone that implements it
@@ -59,6 +60,44 @@ def build_parser() -> argparse.ArgumentParser:
     approve.add_argument("gate", help="1 (concept + cast), 2 (outline) or 3 (final read)")
     approve.add_argument("--force", action="store_true", help="approve even if the stage's checks failed")
     approve.add_argument("--project", "-p", default=None, help="project slug (default: the only project)")
+
+    ledger_parser = commands.add_parser(
+        "ledger", help="show the story ledger or validate a chapter delta"
+    )
+    ledger_commands = ledger_parser.add_subparsers(dest="ledger_command", required=True)
+
+    ledger_show = ledger_commands.add_parser(
+        "show", help="entities, inventory, skills and recorded events"
+    )
+    ledger_show.add_argument(
+        "--project", "-p", default=None, help="project slug (default: the only project)"
+    )
+
+    ledger_validate = ledger_commands.add_parser(
+        "validate", help="check a delta file against ledger.json and rules.json"
+    )
+    ledger_validate.add_argument("delta", help="path to a delta JSON file")
+    ledger_validate.add_argument(
+        "--project", "-p", default=None, help="project slug (default: the only project)"
+    )
+
+    rules_parser = commands.add_parser(
+        "rules", help="inspect or merge the series-bible rules"
+    )
+    rules_commands = rules_parser.add_subparsers(dest="rules_command", required=True)
+
+    rules_merge = rules_commands.add_parser(
+        "merge", help="merge additive rules and print the diff"
+    )
+    rules_merge.add_argument(
+        "additions",
+        nargs="?",
+        default=None,
+        help="additions JSON (default: the outline's rules_additions.json)",
+    )
+    rules_merge.add_argument(
+        "--project", "-p", default=None, help="project slug (default: the only project)"
+    )
 
     roll = commands.add_parser("roll", help="roll and log randomizer picks for a stage")
     roll.add_argument("stage", help="stage number, name or folder name (8, outline, 11-outline)")
@@ -255,6 +294,73 @@ def _cmd_reroll(root: Path, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_ledger(root: Path, args: argparse.Namespace) -> int:
+    from .gates import ledger_check
+
+    project = runner.project_path(root, _resolve_slug(root, args.project))
+    story, rules = ledger_check.load_story_state(project)
+
+    if args.ledger_command == "show":
+        print(ledger.render_ledger(story, slug=project.name), end="")
+        return 0
+
+    delta_path = Path(args.delta)
+    if not delta_path.is_file():
+        raise runner.StoryError(f"delta file not found: {delta_path}")
+    try:
+        delta = json.loads(delta_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise runner.StoryError(f"{delta_path} is not valid JSON: {exc}") from exc
+
+    result = ledger_check.check_delta(story, rules, delta)
+    for note in result.notes:
+        print(f"note: {note}")
+    if not result.ok:
+        for error in result.errors:
+            print(f"error: {error}", file=sys.stderr)
+        print(f"delta rejected: {len(result.errors)} error(s)", file=sys.stderr)
+        return 1
+
+    print(f"ok: delta {result.delta_id} validated against chapter {story['chapter']}")
+    return 0
+
+
+def _cmd_rules(root: Path, args: argparse.Namespace) -> int:
+    from .gates import ledger_check
+
+    project = runner.project_path(root, _resolve_slug(root, args.project))
+    rules_file = ledger_check.rules_path(project)
+    if not rules_file.is_file():
+        raise runner.StoryError(
+            f"no series bible at {rules_file}; run `story run series_bible` first"
+        )
+
+    if args.additions:
+        additions_path = Path(args.additions)
+    else:
+        rules_additions = runner.resolve_stage("outline").dir_name
+        additions_path = project / "stages" / rules_additions / "rules_additions.json"
+    if not additions_path.is_file():
+        raise runner.StoryError(
+            f"rules additions not found: {additions_path}; run `story run outline` first"
+        )
+    try:
+        additions = json.loads(additions_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise runner.StoryError(f"{additions_path} is not valid JSON: {exc}") from exc
+
+    result = ledger.merge_rules(ledger.load_rules(rules_file), additions)
+    if not result.ok:
+        for error in result.errors:
+            print(f"error: {error}", file=sys.stderr)
+        return 1
+
+    print(ledger.format_merge_diff(result))
+    ledger.save_rules(result.rules, rules_file)
+    print(f"rules: {rules_file}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -275,7 +381,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_run(root, args)
         if args.command == "approve":
             return _cmd_approve(root, args)
-    except (runner.StoryError, AdapterError) as exc:
+        if args.command == "ledger":
+            return _cmd_ledger(root, args)
+        if args.command == "rules":
+            return _cmd_rules(root, args)
+    except (runner.StoryError, AdapterError, ledger.LedgerError, ledger.RulesError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
