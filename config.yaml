@@ -11,9 +11,40 @@ adapters:
     options:
       response: echo
 
-  # Not built yet, so they stay unset:
-  #   search: milestone M4
-  #   image:  milestone M8
+  # Web search: stub | manual | wikipedia | generic_json
+  # The stub returns no results and records queries, so `story run all` works offline.
+  search:
+    type: stub
+    options:
+      results: []
+
+  # Image generation is milestone M8.
+
+# --- wikipedia: no key, MediaWiki JSON API -------------------------------------
+#  search:
+#    type: wikipedia
+#    options:
+#      language: en
+#
+# --- manual: write the query, paste results back, no key ----------------------
+#  search:
+#    type: manual
+#    options:
+#      directory: .manual-search
+#      timeout: 3600
+#
+# --- generic_json: Brave, Tavily and similar JSON search APIs ------------------
+#  search:
+#    type: generic_json
+#    options:
+#      base_url: https://api.search.brave.com/res/v1/web/search
+#      api_key_env: BRAVE_API_KEY          # the key lives in the environment only
+#      api_key_header: X-Subscription-Token
+#      results_path: web.results
+#      fields: {title: title, url: url, snippet: description}
+#      # Tavily: method: POST, auth: body, api_key_field: api_key,
+#      #         query_param: query, max_results_param: max_results,
+#      #         results_path: results, snippet: content
 
 # --- manual: works with any chat tool, no API key, no network ------------------
 #  llm:

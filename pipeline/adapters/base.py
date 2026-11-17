@@ -3,8 +3,8 @@
 Everything that talks to a model, a search engine or an image tool sits behind one of
 these interfaces, so switching providers is a config change (see config.yaml).
 
-Only the LLM adapters are implemented in milestone M1. `SearchAdapter` and
-`ImageAdapter` are the interfaces that M4 (search) and M8 (illustration) fill in.
+LLM and search adapters are implemented. `ImageAdapter` is the interface M8
+(illustration) fills in.
 """
 
 from __future__ import annotations
@@ -12,7 +12,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
+from urllib.parse import urlsplit
 
 
 class AdapterError(RuntimeError):
@@ -53,9 +54,46 @@ class SearchResult:
     url: str
     snippet: str
 
+    def to_dict(self) -> dict[str, str]:
+        return {"title": self.title, "url": self.url, "snippet": self.snippet}
+
+
+def is_amazon_url(url: str) -> bool:
+    """True for any Amazon storefront or short link.
+
+    The pipeline never scrapes Amazon: market numbers come from notes the user pastes
+    into `inputs/market_notes.md`, not from the storefront.
+    """
+    host = (urlsplit(url).hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    return (
+        host == "amazon"
+        or host.startswith("amazon.")
+        or ".amazon." in host
+        or host in {"amzn.to", "amzn.eu"}
+        or host.endswith(".amzn.to")
+    )
+
+
+def usable_search_results(
+    results: Iterable[SearchResult], max_results: int
+) -> list[SearchResult]:
+    """Drop Amazon and empty URLs, then cap the list."""
+    if max_results <= 0:
+        return []
+    kept: list[SearchResult] = []
+    for result in results:
+        if not result.url or is_amazon_url(result.url):
+            continue
+        kept.append(result)
+        if len(kept) >= max_results:
+            break
+    return kept
+
 
 class SearchAdapter(Adapter, ABC):
-    """Web search. Interface only until milestone M4."""
+    """Web search, always read-only: adapters call APIs and never scrape pages."""
 
     @abstractmethod
     def search(self, query: str, *, max_results: int = 5) -> list[SearchResult]:

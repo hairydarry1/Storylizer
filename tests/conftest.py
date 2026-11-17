@@ -43,7 +43,9 @@ def make_workspace(tmp_path):
         if SKILLS_DIR.is_dir():
             shutil.copytree(SKILLS_DIR, root / "skills")
         (root / "config.yaml").write_text(
-            "seed: {seed}\nchaos_dial: {chaos}\nadapters:\n  llm:\n    type: echo\n".format(
+            "seed: {seed}\nchaos_dial: {chaos}\nadapters:\n"
+            "  llm:\n    type: echo\n"
+            "  search:\n    type: stub\n    options:\n      results: []\n".format(
                 seed=seed, chaos=chaos_dial
             ),
             encoding="utf-8",

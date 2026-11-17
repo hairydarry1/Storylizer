@@ -17,10 +17,29 @@ from typing import Any
 import yaml
 
 from . import schemas
-from .adapters import LLMAdapter, create_llm_adapter
+from .adapters import (
+    LLMAdapter,
+    SearchAdapter,
+    create_llm_adapter,
+    create_search_adapter,
+)
 
 GATE_STAGE_NUMBERS = {1: 9, 2: 11, 3: 17}
 GATE_MILESTONES = {2: "M6", 3: "M8"}
+
+#: stage -> milestone that writes its skill, for the "not built yet" message
+STAGE_MILESTONES = {
+    10: "M5",
+    11: "M5",
+    12: "M6",
+    13: "M6",
+    14: "M7",
+    15: "M7",
+    16: "M7",
+    17: "M8",
+    18: "M8",
+    19: "M8",
+}
 
 
 class StoryError(RuntimeError):
@@ -72,8 +91,10 @@ NEEDS_APPROVAL = "needs approval"
 FAILED = "failed"
 
 
-def resolve_stage(reference: str | int) -> Stage:
-    """Accept 8, '08', 'character_creation' or '08-character_creation'."""
+def resolve_stage(reference: str | int | Stage) -> Stage:
+    """Accept 8, '08', 'character_creation', '08-character_creation' or a Stage."""
+    if isinstance(reference, Stage):
+        return reference
     text = str(reference).strip()
     for stage in STAGES:
         if text in (stage.dir_name, stage.name, str(stage.number), f"{stage.number:02d}"):
@@ -238,6 +259,17 @@ def load_llm_adapter(config: Config, **overrides: Any) -> LLMAdapter:
     return create_llm_adapter(str(spec["type"]), options)
 
 
+def load_search_adapter(config: Config) -> SearchAdapter:
+    """Build the search adapter named in config.yaml, if one is configured."""
+    spec = config.adapters.get("search")
+    if not isinstance(spec, dict) or not spec.get("type"):
+        raise StoryError(
+            "config needs adapters.search.type (stub, manual, wikipedia or generic_json) "
+            "for stages that search; run with no results to continue offline"
+        )
+    return create_search_adapter(str(spec["type"]), dict(spec.get("options") or {}))
+
+
 # --------------------------------------------------------------------------- projects
 
 SLUG_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
@@ -289,7 +321,7 @@ def init_project(root: Path | str, slug: str, *, force: bool = False) -> InitRes
     project = project_path(root, slug)
     result = InitResult(project=project)
 
-    for name in ("stages", "chapters", "reports"):
+    for name in ("stages", "inputs", "chapters", "reports"):
         directory = project / name
         if not directory.exists():
             directory.mkdir(parents=True)
@@ -442,6 +474,13 @@ class RunResult:
 
 
 @dataclass
+class RunAllResult:
+    results: list[RunResult] = field(default_factory=list)
+    stopped_at: Stage | None = None
+    reason: str = ""
+
+
+@dataclass
 class ApproveResult:
     gate: int
     stage: Stage
@@ -512,13 +551,14 @@ def run_stage(
     force: bool = False,
     llm: LLMAdapter | None = None,
     config: Config | None = None,
+    search: SearchAdapter | None = None,
 ) -> RunResult:
     """Run one stage that has a skill file, writing output.md, meta.json and its artifacts.
 
     Missing upstream stages are passed in as empty with a note. An approved stage is never
     overwritten without `force`.
     """
-    from . import character_creation, ensemble, randomizer
+    from . import character_creation, early_stages, ensemble, randomizer
 
     root = Path(root)
     stage = resolve_stage(reference)
@@ -528,8 +568,10 @@ def run_stage(
 
     skill_path = root / SKILLS_DIRNAME / f"{stage.name}.md"
     if not skill_path.is_file():
+        milestone = STAGE_MILESTONES.get(stage.number)
+        planned = f" (planned for {milestone})" if milestone else ""
         raise StoryError(
-            f"stage {stage.dir_name} is not built yet (no skill at {skill_path}); "
+            f"stage {stage.dir_name} is not built yet{planned}; no skill at {skill_path}; "
             "see BUILD_SPEC.md section 10"
         )
     skill = load_skill(root, stage.name)
@@ -562,16 +604,39 @@ def run_stage(
     issues: list[Any] = []
     output_text = ""
 
-    if stage.name == "character_creation":
+    if stage.number <= 7:
+        search_adapter = search
+        if skill.uses_search and search_adapter is None:
+            try:
+                search_adapter = load_search_adapter(config)
+            except StoryError as exc:
+                notes.append(str(exc))
+        output_text, extra_meta, extra_notes = early_stages.run(
+            stage,
+            skill,
+            project,
+            concept,
+            upstream,
+            notes,
+            llm,
+            search_adapter,
+        )
+        notes.extend(extra_notes)
+        meta.update(extra_meta)
+        meta["files"] = ["output.md", "meta.json"]
+
+    elif stage.name == "character_creation":
         rnd = randomizer.Randomizer(root, slug, config)
         roll_result = rnd.roll_stage(8)
         meta["rolls"] = [roll.to_dict() for roll in roll_result.rolls]
+        constraints = character_creation.read_story_constraints(project, concept)
+        meta["story_constraints"] = constraints
 
         draft = character_creation.draft_cast(
             roll_result.rolls, concept, seed=config.seed, names=rnd.names
         )
         prompt = character_creation.creation_prompt(
-            skill, concept, roll_result.rolls, upstream, notes
+            skill, concept, roll_result.rolls, upstream, notes, constraints=constraints
         )
         reply = llm.complete(
             prompt, system=skill.sections["Purpose"], model_tier=skill.model_tier, max_tokens=4000
@@ -646,6 +711,80 @@ def run_stage(
         notes=notes,
         issues=issues,
     )
+
+
+def run_all(
+    root: Path | str,
+    slug: str,
+    *,
+    force: bool = False,
+    llm: LLMAdapter | None = None,
+    config: Config | None = None,
+) -> RunAllResult:
+    """Run every built stage in order until the next human gate.
+
+    Done stages are skipped, failed stages are retried, and an unbuilt stage stops the run
+    with the milestone that will build it. The stop at a gate is not an error: the caller
+    reports it and waits for `approve_gate`.
+    """
+    root = Path(root)
+    project = project_path(root, slug)
+    if not project.is_dir():
+        raise StoryError(f"project not found: {project} (run `story init {slug}`)")
+
+    config = config or load_config(root)
+    llm = llm if llm is not None else load_llm_adapter(config)
+    try:
+        search = load_search_adapter(config)
+    except StoryError:
+        search = None  # searching stages record the missing adapter and continue
+
+    outcome = RunAllResult()
+    for stage in STAGES:
+        skill_path = root / SKILLS_DIRNAME / f"{stage.name}.md"
+        if not skill_path.is_file():
+            milestone = STAGE_MILESTONES.get(stage.number, "a later milestone")
+            raise StoryError(
+                f"stage {stage.dir_name} is not built yet (planned for {milestone}); "
+                f"run `story run all` again after {milestone}"
+            )
+
+        state = stage_state(project, stage)
+        if state.status == NEEDS_APPROVAL:
+            outcome.stopped_at = stage
+            outcome.reason = (
+                f"human gate {stage.human_gate} at {stage.dir_name} needs approval "
+                f"(story approve {stage.human_gate})"
+            )
+            break
+        if state.status == DONE and not force:
+            continue
+
+        result = run_stage(
+            root,
+            slug,
+            stage,
+            force=force,
+            llm=llm,
+            config=config,
+            search=search,
+        )
+        outcome.results.append(result)
+        if result.status == FAILED:
+            outcome.stopped_at = stage
+            outcome.reason = f"stage {stage.dir_name} failed; see {result.meta_path}"
+            break
+        if stage.human_gate is not None:
+            outcome.stopped_at = stage
+            outcome.reason = (
+                f"human gate {stage.human_gate} at {stage.dir_name} needs approval "
+                f"(story approve {stage.human_gate})"
+            )
+            break
+
+    if outcome.stopped_at is None:
+        outcome.reason = "every built stage is done"
+    return outcome
 
 
 def approve_gate(

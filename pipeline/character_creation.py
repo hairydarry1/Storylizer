@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import random
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import yaml
@@ -290,22 +291,95 @@ def cast_from_reply(reply: str, draft: schemas.Cast) -> tuple[schemas.Cast, str 
         return draft, f"model cast rejected ({exc}); kept the validated draft"
 
 
+def _stage_meta(project: Path, number: int) -> dict[str, Any]:
+    stages = project / "stages"
+    matches = sorted(stages.glob(f"{number:02d}-*")) if stages.is_dir() else []
+    if not matches:
+        return {}
+    path = matches[0] / "meta.json"
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _stage_section(project: Path, number: int, heading: str) -> str:
+    stages = project / "stages"
+    matches = sorted(stages.glob(f"{number:02d}-*")) if stages.is_dir() else []
+    if not matches:
+        return ""
+    path = matches[0] / "output.md"
+    if not path.is_file():
+        return ""
+    text = path.read_text(encoding="utf-8")
+    marker = f"## {heading}"
+    if marker not in text:
+        return ""
+    return text.split(marker, 1)[1].split("\n## ", 1)[0].strip().strip("-")
+
+
+def read_story_constraints(project: Path | str, concept: Mapping[str, Any]) -> dict[str, str]:
+    """Theme, premise and tone ceiling from stages 1-7, for the stage 8 prompt.
+
+    Meta is preferred because the stages write it deterministically; the output headings are
+    a fallback for a hand-edited project.
+    """
+    project = Path(project)
+    theme = str(_stage_meta(project, 6).get("central_question") or "").strip() or _stage_section(
+        project, 6, "Central question"
+    )
+    premise = str(_stage_meta(project, 5).get("premise") or _stage_meta(project, 6).get("premise") or "").strip()
+    premise = premise or str(concept.get("premise_seed") or "").strip()
+    tone = str(_stage_meta(project, 7).get("ceiling") or "").strip()
+    if not tone:
+        for line in _stage_section(project, 7, "Conflict ceiling").splitlines():
+            if "conflict ceiling:" in line.lower():
+                tone = line.split(":", 1)[1].strip()
+                break
+
+    constraints = {
+        "genre": str(concept.get("genre") or "").strip(),
+        "premise": premise,
+        "theme": theme,
+        "tone_ceiling": tone,
+    }
+    return {key: value for key, value in constraints.items() if value}
+
+
 def creation_prompt(
     skill,
     concept: Mapping[str, Any],
     rolls: Sequence[Roll],
     upstream: str,
     notes: Sequence[str],
+    constraints: Mapping[str, str] | None = None,
 ) -> str:
     roll_lines = "\n".join(f"- {roll.key}: {roll.value}" for roll in rolls)
     sections = "\n\n".join(f"## {name}\n\n{text}" for name, text in skill.sections.items())
     upstream_text = upstream.strip() or "(no upstream stage output exists yet)"
     note_text = "\n".join(f"- {note}" for note in notes) or "- none"
+    constraints = dict(constraints or {})
+    constraint_lines = [
+        f"- genre: {constraints.get('genre')}" if constraints.get("genre") else "",
+        f"- premise: {constraints.get('premise')}" if constraints.get("premise") else "",
+        f"- theme / central question: {constraints.get('theme')}"
+        if constraints.get("theme")
+        else "",
+        f"- conflict ceiling: {constraints.get('tone_ceiling')}"
+        if constraints.get("tone_ceiling")
+        else "",
+    ]
+    constraint_text = "\n".join(line for line in constraint_lines if line) or "- none: stages 1-7 have not run"
     return (
         f"{sections}\n\n"
         "## This project\n\n"
         "concept.yaml:\n"
         f"```yaml\n{yaml.safe_dump(dict(concept), sort_keys=False)}```\n\n"
+        "## Story constraints (from earlier stages)\n\n"
+        f"{constraint_text}\n\n"
         "Randomizer rolls (constraints, not suggestions):\n"
         f"{roll_lines}\n\n"
         "Earlier stage outputs:\n"

@@ -23,12 +23,35 @@ REQUIRED_FRONTMATTER = (
 REQUIRED_SECTIONS = ("Purpose", "Inputs", "Steps", "Output format", "Do not", "Self-check")
 
 
-@pytest.mark.parametrize("name", ["character_creation", "ensemble_check"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "intake",
+        "market_research",
+        "reference_analysis",
+        "setting_research",
+        "premise_inversion",
+        "theme_premise",
+        "tone_ceiling",
+        "character_creation",
+        "ensemble_check",
+    ],
+)
 def test_the_skill_files_parse(name):
     skill = runner.load_skill(PROJECT_ROOT, name)
 
     assert skill.name == name
-    assert skill.stage in (8, 9)
+    assert skill.stage == [
+        "intake",
+        "market_research",
+        "reference_analysis",
+        "setting_research",
+        "premise_inversion",
+        "theme_premise",
+        "tone_ceiling",
+        "character_creation",
+        "ensemble_check",
+    ].index(name) + 1
     assert skill.model_tier in ("planner", "writer", "checker", "none")
     for key in REQUIRED_FRONTMATTER:
         assert key in skill.frontmatter, f"{name} is missing frontmatter {key}"

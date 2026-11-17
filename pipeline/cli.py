@@ -47,8 +47,11 @@ def build_parser() -> argparse.ArgumentParser:
     status = commands.add_parser("status", help="stage table: done / needs approval / failed")
     status.add_argument("--project", "-p", default=None, help="project slug (default: the only project)")
 
-    run = commands.add_parser("run", help="run one stage that has a skill file")
-    run.add_argument("stage", help="stage number, name or folder name (8, character_creation)")
+    run = commands.add_parser("run", help="run one stage, or all stages until the next gate")
+    run.add_argument(
+        "stage",
+        help="stage number, name, folder name (8, character_creation) or all",
+    )
     run.add_argument("--force", action="store_true", help="allow re-running an approved stage")
     run.add_argument("--project", "-p", default=None, help="project slug (default: the only project)")
 
@@ -169,7 +172,36 @@ def _cmd_lock(root: Path, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_run_all(root: Path, args: argparse.Namespace) -> int:
+    config = runner.load_config(root, args.config)
+    result = runner.run_all(
+        root,
+        _resolve_slug(root, args.project),
+        force=args.force,
+        config=config,
+    )
+
+    for run in result.results:
+        print(f"{run.stage.dir_name}: {run.status} -> {run.output_path}")
+        if run.status == runner.FAILED:
+            print(f"  see {run.meta_path}", file=sys.stderr)
+    if not result.results:
+        print("nothing to run: done stages and the next gate are already recorded")
+
+    if result.stopped_at is not None:
+        print(f"stopped: {result.reason}")
+        if result.stopped_at.human_gate is not None:
+            print(f"next: story approve {result.stopped_at.human_gate}")
+
+    if any(run.status == runner.FAILED for run in result.results):
+        return 1
+    return 0
+
+
 def _cmd_run(root: Path, args: argparse.Namespace) -> int:
+    if str(args.stage).strip().lower() == "all":
+        return _cmd_run_all(root, args)
+
     config = runner.load_config(root, args.config)
     result = runner.run_stage(
         root,
