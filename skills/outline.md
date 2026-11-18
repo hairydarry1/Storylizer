@@ -41,14 +41,17 @@ validators below have to pass first.
    `chapter_shapes` (chapter 1 uses the roll, never three in a row), an imagery domain from
    `imagery_domains`, a tension from 1 to 5 on a curve that rises and falls, the actor whose
    debut the chapter carries, a complication card every third chapter, the threat schedule
-   and an optional illustration slot at tension 4 or 5.
+   and an optional illustration slot at tension 4 or 5. The closing actor of each chapter is
+   also code-assigned: the protagonist closes at least 70% of chapters and chapter 1 always
+   closes on the protagonist; a seeded randomizer picks the other chapters, each closing on a
+   secondary who has already debuted.
 3. For each chapter in order, call the planner with the concept, theme and premise, cast
    sheets, rules summary, that chapter's constraints and summaries of the chapters before it.
    Allowed actors are the protagonist and the secondaries whose debut has arrived.
 4. Require one JSON object: `title`, `hook`, `beats` of
    `{actor, action, obstacle, outcome}`, and `ends_on`.
 5. Validate it: the schema, real cast ids, one actor per beat, at least three beats, no empty
-   text, the closing beat acted by the protagonist, no banned phrase, and no beat text that
+   text, the closing beat acted by the assigned closing actor, no banned phrase, and no beat text that
    repeats or nearly repeats a beat from an earlier chapter.
 6. Retry up to three times, feeding the validation errors back. A chapter that is still
    invalid fails the stage with the details; there is no template fallback.
@@ -78,7 +81,7 @@ validators below have to pass first.
       "imagery": "river engineering: sluices, silt, flood marks",
       "tension": 2, "words": 2500, "complication": null,
       "illustration": {"slot": "ch01-scene-1", "status": "optional", "focus": "river engineering"},
-      "threat": false, "actor": "mara",
+      "threat": false, "actor": "mara", "closing_actor": "mara",
       "beats": [
         {"id": "ch01-b1", "kind": "setup", "actor": "mara", "action": "...",
          "obstacle": "...", "outcome": "..."}
@@ -89,7 +92,9 @@ validators below have to pass first.
 ```
 
 `meta.json` records `model.mode` (model or skeleton), the model call count, the largest
-attempt count and, on failure, `failed_chapter`. `rules_additions.json` uses the
+attempt count, `resumed` (chapters reused from `partial.json`) and, on failure,
+`failed_chapter`. Each validated chapter is saved to `partial.json` as it passes, and the
+file is deleted only when the stage completes. `rules_additions.json` uses the
 `rules.json` shape for `items`, `recipes`, `locations` and `skills` only.
 
 ## Do not
@@ -108,8 +113,8 @@ attempt count and, on failure, `failed_chapter`. `rules_additions.json` uses the
 - Every validator reports `pass` in `meta.json` and in the outline's Validators section.
 - Every chapter has a shape from the table, an imagery domain, tension 1-5, a hook, an
   ending and beats that name exactly one cast id each.
-- Every secondary appears first in a different chapter, and every chapter closes on the
-  protagonist.
+- Every secondary appears first in a different chapter, at least 70% of chapters close on
+  the protagonist, and the rest close on a secondary who has already debuted.
 - No beat repeats an earlier chapter's beat, and no banned phrase appears.
 - A failed model reply leaves no `outline.json` and no `rules_additions.json` behind.
 - `rules_additions.json` only contains new ids, and every recipe ingredient and exit target

@@ -1,0 +1,54 @@
+{
+  "stage": "01-intake",
+  "skill": "intake",
+  "model_tier": "planner",
+  "human_gate": null,
+  "approved": false,
+  "started_at": "2026-11-18T11:46:23+00:00",
+  "adapter": {
+    "adapter": "openai_compatible",
+    "tiers": {
+      "planner": {
+        "adapter": "openai_compatible",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "model": "gemini-3.8-flash",
+        "api_key_env": "GEMINI_API_KEY"
+      },
+      "writer": {
+        "adapter": "openai_compatible",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "model": "gemini-3.8-flash",
+        "api_key_env": "GEMINI_API_KEY"
+      },
+      "checker": {
+        "adapter": "openai_compatible",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "model": "gemini-3.8-flash",
+        "api_key_env": "GEMINI_API_KEY"
+      }
+    },
+    "calls_today": 3,
+    "call_limit": 10
+  },
+  "notes": [
+    "model call failed: HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Max retries exceeded with url: /v1beta/openai/chat/completions (Caused by NameResolutionError(\"HTTPSConnection(host='generativelanguage.googleapis.com', port=443): Failed to resolve 'generativelanguage.googleapis.com' ([Errno 11001] getaddrinfo failed)\"))"
+  ],
+  "files": [
+    "output.md",
+    "meta.json"
+  ],
+  "open_questions": [
+    "`genre` is empty: add the shelf the book belongs on.",
+    "`audience` is empty: add who the book is for.",
+    "`premise_seed` is empty: add one sentence: who wants what, and what it costs.",
+    "`pen_name` is empty: add the name to publish under, or 'none'."
+  ],
+  "tone_dial": 1,
+  "status": "done",
+  "finished_at": "2026-11-18T11:46:35+00:00",
+  "calls": {
+    "run": 1,
+    "today": 4,
+    "limit": 10
+  }
+}

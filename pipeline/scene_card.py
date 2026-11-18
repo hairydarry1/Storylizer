@@ -387,7 +387,7 @@ def build_cards(
             }
         )
 
-    if not failed and partial_path is not None and not skeleton:
+    if not failed and partial_path is not None:
         Path(partial_path).unlink(missing_ok=True)
     return {"chapters": chapters}, report
 

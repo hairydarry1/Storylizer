@@ -232,4 +232,4 @@ def test_later_gates_name_their_milestone(workspace):
 
 def test_stages_without_a_skill_are_not_runnable(workspace):
     with pytest.raises(runner.StoryError, match="not built"):
-        runner.run_stage(workspace, "demo", "chapter_writer")
+        runner.run_stage(workspace, "demo", "quality_gates")

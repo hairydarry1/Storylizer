@@ -815,6 +815,8 @@ def build_outline(
         for chapter in chapters:
             _fill_skeleton(chapter, protagonist=protagonist, cast_by_id=cast_by_id, threat=threat)
         report.merge(validate_outline(outline, cast))
+        if report.ok and partial_path is not None:
+            Path(partial_path).unlink(missing_ok=True)
         return outline, report
 
     if llm is None or skill is None:
@@ -893,7 +895,8 @@ def build_outline(
                 break
 
         chapter.update(fields)
-        authored[number] = fields
+        # A copy, because _annotate_beats decorates chapter["beats"] in place.
+        authored[number] = _clean_fields(fields)
         model_json.save_partial(partial_path, authored)
         _annotate_beats(chapter)
         seen.extend(

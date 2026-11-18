@@ -56,6 +56,7 @@ def test_each_chapter_is_a_planner_call_with_strict_json(workspace):
         "calls": 24,
         "attempts": 1,
         "chapters": 24,
+        "resumed": 0,
     }
     assert result.meta["validators"]["ok"] is True
     assert all(writer_call["model_tier"] == "planner" for writer_call in writer.calls)
@@ -74,7 +75,7 @@ def test_each_chapter_is_a_planner_call_with_strict_json(workspace):
     assert {chapter["shape"] for chapter in chapters}
     assert any(chapter["threat"] for chapter in chapters)
     assert all(
-        chapter["beats"][-1]["actor"] == first["beats"][-1]["actor"] for chapter in chapters
+        chapter["beats"][-1]["actor"] == chapter["closing_actor"] for chapter in chapters
     )
 
 

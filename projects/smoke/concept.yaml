@@ -1,0 +1,11 @@
+# Concept brief. Fill this in, then let the pipeline stages run in order.
+slug: smoke
+working_title: ""
+genre: ""
+tone_dial: 1          # 0 cozy .. 3 action-comedy
+audience: ""
+target_words: 60000
+pen_name: ""
+premise_seed: ""
+must_include: []
+must_avoid: []

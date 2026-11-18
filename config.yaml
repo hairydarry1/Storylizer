@@ -4,19 +4,50 @@
 seed: 20261106   # every random roll derives from this seed (BUILD_SPEC.md section 6)
 chaos_dial: 1    # 0 = tame .. 3 = chaotic: how many random constraints each stage applies
 
-adapters:
-  # Text generation: echo | manual | openai_compatible
-  llm:
-    type: echo
-    options:
-      response: echo
+# Deterministic linter thresholds (`story check`), BUILD_SPEC.md section 7.
+gates:
+  linter:
+    repeated_phrase_lengths: [3, 4, 5]   # word n-grams counted as repeated phrases
+    repeated_phrase_min_count: 3         # occurrences before a phrase is flagged
+    overused_word_min_count: 6           # minimum uses before a word is flagged
+    overused_word_per_1000: 8            # and its rate per 1,000 words
+    tic_words: [just, really, very, suddenly, somehow, actually, quite, almost, only, even, still, then]
+    tic_min_count: 3                     # minimum uses before a tic is flagged
+    tic_per_1000: 5                      # and its rate per 1,000 words
+    uniform_sentence_stdev: 2.5          # flag when sentence lengths are this even
+    uniform_min_sentences: 8             # only once the chapter has this many sentences
+    paragraph_opener_words: 1            # words compared at the start of each paragraph
+    paragraph_opener_min_count: 3        # paragraphs sharing an opener before it is flagged
+    banned_phrase_min_count: 1           # any use of a banned phrase fails
 
-  # Web search: stub | manual | wikipedia | generic_json
-  # The stub returns no results and records queries, so `story run all` works offline.
+adapters:
+  llm:
+    type: openai_compatible
+    options:
+      timeout: 120
+      providers:
+        planner:
+          base_url: https://generativelanguage.googleapis.com/v1beta/openai
+          model: gemini-3.8-flash
+          api_key_env: GEMINI_API_KEY
+        writer:
+          base_url: https://generativelanguage.googleapis.com/v1beta/openai
+          model: gemini-3.8-flash
+          api_key_env: GEMINI_API_KEY
+        checker:
+          base_url: https://generativelanguage.googleapis.com/v1beta/openai
+          model: gemini-3.8-flash
+          api_key_env: GEMINI_API_KEY
+
   search:
     type: stub
     options:
+      timeout: 120
+      retries: 5
+      backoff: 2
+      max_backoff: 60
       results: []
+      
 
   # Image generation is milestone M8.
 
@@ -37,8 +68,8 @@ adapters:
 #  search:
 #    type: generic_json
 #    options:
-#      base_url: https://api.search.brave.com/res/v1/web/search
-#      api_key_env: BRAVE_API_KEY          # the key lives in the environment only
+#      base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+#      api_key_env: GEMINI_API_KEY          # the key lives in the environment only
 #      api_key_header: X-Subscription-Token
 #      results_path: web.results
 #      fields: {title: title, url: url, snippet: description}
@@ -62,7 +93,29 @@ adapters:
 #      model: meta-llama/llama-3.3-70b-instruct
 #      api_key_env: OPENROUTER_API_KEY    # the key itself lives in the environment only
 #      timeout: 120
+#      retries: 2                           # attempts after the first: 429 and 5xx only
+#      backoff: 1.0                         # seconds, doubled per attempt
+#      max_backoff: 60                      # caps both backoff and Retry-After
 #      models:                             # optional per-tier models (section 5)
 #        planner: meta-llama/llama-3.3-70b-instruct
 #        writer: meta-llama/llama-3.3-70b-instruct
 #        checker: meta-llama/llama-3.1-8b-instruct
+#
+# --- per-tier providers: Gemini, Groq and OpenRouter are OpenAI-compatible ------------
+#  llm:
+#    type: openai_compatible
+#    options:
+#      timeout: 120
+#      providers:                          # one base_url/model/api_key_env per tier
+#        planner:
+#          base_url: https://generativelanguage.googleapis.com/v1beta/openai
+#          model: gemini-2.0-flash
+#          api_key_env: GEMINI_API_KEY
+#        writer:
+#          base_url: https://api.groq.com/openai/v1
+#          model: llama-3.3-70b-versatile
+#          api_key_env: GROQ_API_KEY
+#        checker:
+#          base_url: https://openrouter.ai/api/v1
+#          model: meta-llama/llama-3.1-8b-instruct
+#          api_key_env: OPENROUTER_API_KEY

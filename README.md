@@ -4,13 +4,19 @@ Turns a short concept brief into a finished novel through small Markdown "skills
 randomness and automatic quality gates. The target design is in `BUILD_SPEC.md`; this README
 describes what actually works today.
 
-**Status: milestone M6b.** Scaffold, config, the three LLM adapters, four search adapters,
+**Status: milestone M7b (chapter writer).** Scaffold, config, the three LLM adapters, four search adapters,
 `story init`, `story status`, the seeded randomizer (`story roll`, `story lock`, `story reroll`),
-skills 1–13, `story run <stage>`, `story run all`, `story approve` (gates 1 and 2), the series
+skills 1–14, `story run <stage>`, `story run all`, `story approve` (gates 1 and 2), the series
 bible (stage 10), the ledger gate (`story ledger show`, `story ledger validate`), the
 model-authored outline and scene cards (strict JSON, three attempts each, no template
-fallback), the narrator voice and `story rules merge`. Stages 14+ are not built yet, so
-`check` and `export` still print the milestone that will build them and exit with code 2.
+fallback), the narrator voice and `story rules merge`. M6c adds per-tier providers, HTTP retries with exponential backoff
+and quota-header reporting, `--max-calls` with a persisted per-day call counter, resumable
+outline and scene-card stages, and code-assigned closing actors. Stages 15+ are not built yet, so
+`export` still prints the milestone that will build it and exits with code 2. M7a adds the
+no-AI linter, `story check`, and a 44-entry banned-phrase table; `story check --delta` also
+runs the existing ledger gate. M7b adds stage 14: the writer drafts one chapter, a
+checker returns a summary and a ledger delta, and the linter, word-count and ledger gates
+decide whether the delta is applied.
 
 ## Requirements
 
@@ -18,7 +24,7 @@ Python 3.11+, plus `pyyaml`, `requests` and `pytest`. Nothing else.
 
 ```bash
 pip install -e .        # gives you the `story` command
-python -m pytest        # 329 tests
+python -m pytest        # 399 tests
 ```
 
 Without installing, `python -m pipeline.cli` works from the project folder.
@@ -43,12 +49,19 @@ story run series_bible        # stage 10: bible.md, rules.json, initial ledger.j
 story ledger show             # level, xp, inventory, skills and events per character
 story ledger validate ch03.json   # the delta gate for one chapter
 
+story check ch01                   # lint a chapter; writes reports/lint-ch01.json + .md
+story check ch01 --delta ch03.json # lint and run the ledger gate on one delta
+
 story run outline             # stage 11: the planner writes each chapter (gate 2)
 story run outline --skeleton  # deterministic chapters instead (tests / offline dry runs)
 story approve 2               # human gate 2: approve the outline
 story run scene_card          # stage 12: model-written goal / conflict / turn per scene
 story run narrator_voice      # stage 13: voice.md + tables/banned_phrases.json
+story run chapter_writer --chapter 3  # stage 14: draft only chapter 3
+story run chapter_writer --from 4     # draft from 4, skipping accepted chapters
 story rules merge             # merge rules_additions.json and print the diff
+
+story run outline --max-calls 25   # cap model calls for this run
 ```
 
 `story run` writes `stages/NN-<name>/output.md` and `meta.json` (`cast.json` too for stage 8).
@@ -58,7 +71,7 @@ and 12 write their deterministic text instead of calling the model; it exists fo
 dry runs, and a real run never falls back to it. `story run all` skips done
 stages, retries a failed one, runs stages 1–9 in order and stops at gate 1 with
 `story approve 1` as the next command; after gate 1 it runs stages 10–11 and stops at gate 2
-(`story approve 2`), then runs stages 12–13 before the next unbuilt stage reports M7.
+(`story approve 2`), then runs stages 12–14 before the next unbuilt stage reports M7c.
 
 Stages 1–7 each write `output.md` and `meta.json` with deterministic structure first:
 
@@ -105,8 +118,15 @@ of operations (`add_item`, `remove_item`, `xp_gain`, `level_up`, `skill_unlock`,
 `event`) and every one has to be earned. An item needs a recorded event or a recipe whose
 ingredients are present, a level-up needs the XP threshold, a skill unlock needs its level and
 prerequisites, a move needs an edge in the location graph, and an unknown entity is an error.
-A rejected delta exits 1 with its reasons, and a delta is applied once, so replaying it is
+Rejected deltas exit 1 with their reasons, and a delta is applied once, so replaying it is
 rejected.
+
+`story check <chapter>` takes a path or a chapter name under the project and writes
+`reports/lint-<stem>.json` plus a Markdown summary. It flags repeated 3–5 word phrases,
+overused words, uniform sentence length, banned phrases, tic words per 1,000 words, and
+repeated paragraph openers; thresholds live under `gates.linter` in `config.yaml`. Any flag
+exits 1. `--delta` additionally validates that delta with the ledger gate, and either gate
+failing exits 1.
 
 `outline` is stage 11, behind gate 2, and it is model-authored. Code and the randomizer fix
 the constraints: the chapter count from `target_words` (at least eight, one per secondary
@@ -124,16 +144,38 @@ Five code validators still gate the stage: no more than two chapters in a row sh
 shape, every secondary debuts in a different chapter, the background threat reaches at
 least 40% of chapters, the protagonist acts in at least 70% of resolution beats, and the
 tension curve is not monotonic. `story approve 2` refuses a failed outline unless
-`--force`. The stage also writes `rules_additions.json`; `story rules merge` validates
+`--force`. Each validated chapter is written to `stages/11-outline/partial.json` as soon as it passes,
+so a rerun continues from the first missing chapter (`meta.json` records `model.resumed`);
+the partial file is deleted only when the whole stage completes. A code-assigned closing
+actor keeps the protagonist closing at least 70% of chapters: chapter 1 always closes on the
+protagonist, a seeded randomizer picks the other chapters, and each one closes on a
+secondary who has already debuted. The prompt states the assigned actor, the checks reject a
+chapter that ends on anyone else, and the five code validators are unchanged. The stage also
+writes `rules_additions.json`; `story rules merge` validates
 those entries against the rules schema and merges them additively, never overwriting an
 existing entry, printing a `+` / `=` diff first.
 
 `scene_card` is stage 12: the planner writes a goal, a conflict and a turn for every scene,
-one chapter and one JSON object per call, checked and retried the same way. `narrator_voice`
+one chapter and one JSON object per call, checked and retried the same way, and resumes from
+the same sort of `partial.json`. `narrator_voice`
 is stage 13: `voice.md` with the POV, tense, sentence and paragraph targets (from
 `craft_targets.json` when present), a dialogue subtext guide and the banned-phrase list,
 plus the starter `tables/banned_phrases.json` when the table is missing. Neither has a
 human gate.
+
+`chapter_writer` is stage 14, one chapter at a time. The writer tier gets the chapter's
+outline beats and scene cards, `voice.md`, bible and rules summaries, the current ledger, the
+last two accepted chapter summaries, sampled craft targets and the writing rules (the
+protagonist solves her own problems, no lecture conversions, show don't tell, dialogue
+carries subtext, no banned phrases, no meta commentary). It writes `chapters/chNN.md` and
+inserts `[[ILLUSTRATION: chNN-sK | short description]]` where the outline assigned a slot.
+The checker tier then returns strict JSON with a `summary` and a `ledger delta`, retried up to
+three times with errors fed back. Before anything is applied, code runs the linter, checks the
+word count is within 20% of target and validates the delta; only then does the delta update
+`ledger.json` and the summary enter `summaries.json`. A failing chapter is marked
+`needs_revision`, its report is saved in `reports/chapter-chNN.json`, and the ledger is left
+alone. `--chapter N` drafts one chapter, `--from N` resumes at N, and accepted chapters are
+skipped on a rerun.
 
 `story roll` prints the stage header, the chaos count, and a `key | table | value` table.
 Rolls are deterministic: the RNG seed is `sha256("{seed}|{stage}|{key}")`, so the same
@@ -164,10 +206,13 @@ projects/my-book/
   concept.yaml     # the brief you fill in
   rolls.json       # randomizer audit log, append-only
   ledger.json      # story state (seeded by stage 10)
+  summaries.json   # accepted chapter summaries (stage 14)
+  calls.json       # per-day model call counter (M6c)
   inputs/          # market_notes.md and other pasted research
-  stages/          # NN-<stage>/output.md + meta.json per stage (+ cast.json at stage 8)
+  stages/          # NN-<stage>/output.md + meta.json per stage (+ cast.json at stage 8,
+                   #  partial.json while stages 11-12 are unfinished)
   chapters/        # ch01.md, ch02.md, ...
-  reports/         # linter, rubric and originality reports
+  reports/         # lint, chapter-gate, rubric and originality reports
 ```
 
 `story status` reads `stages/NN-<name>/output.md` and `meta.json`:
@@ -218,6 +263,41 @@ adapters:
 Keys are read from the environment variable named by `api_key_env`. They are never written to
 a config file, `meta.json` or a log.
 
+For local runs, `story` reads a `.env` file from the project root (the folder holding
+`config.yaml`) at startup, before config loading. Copy `.env.example` to `.env` and fill in
+the key; variables already set in the real environment win. The loader ignores blank lines
+and `#` comments, accepts `KEY=value`, quoted values and an optional `export` prefix, and
+never prints or writes values — errors name variables only.
+
+`retries` (default 2) retries HTTP 429 and 5xx replies with exponential backoff (`backoff`
+1.0s, doubled, capped by `max_backoff`); a `Retry-After` header wins over the computed delay.
+When the API reports remaining quota in its headers (`x-ratelimit-*`, `x-quota-*`), the
+counts are recorded in the stage `meta.json` and in the failure message.
+
+Each model tier can use its own provider; Gemini, Groq and OpenRouter all speak the
+OpenAI-compatible API, so only `base_url`, `model` and `api_key_env` change per tier:
+
+```yaml
+adapters:
+  llm:
+    type: openai_compatible
+    options:
+      providers:
+        planner: {base_url: "https://generativelanguage.googleapis.com/v1beta/openai", model: gemini-2.0-flash, api_key_env: GEMINI_API_KEY}
+        writer: {base_url: "https://api.groq.com/openai/v1", model: llama-3.3-70b-versatile, api_key_env: GROQ_API_KEY}
+        checker: {base_url: "https://openrouter.ai/api/v1", model: meta-llama/llama-3.1-8b-instruct, api_key_env: OPENROUTER_API_KEY}
+```
+
+The shared options (timeout, retries, backoff) are inherited by every tier. `providers` is
+only valid for `openai_compatible`; tiers are `planner`, `writer` and `checker`.
+
+### Model call budget
+
+`story run <stage> --max-calls N` (and `story run all --max-calls N`) stops the run before
+the N+1th call and fails the stage with a clear reason. The per-day count is kept in
+`projects/<slug>/calls.json` (`{"days": {"YYYY-MM-DD": n}}`, pruned to 90 days), updated on
+every call and printed after each run, whether it succeeded or not.
+
 Four search adapters exist for stages 2–4:
 
 | type | what it does |
@@ -259,15 +339,17 @@ pipeline/
   early_stages.py         deterministic builders for stages 1-7 and market-note parsing
   character_creation.py   deterministic cast draft, model cast parsing, rendering
   ledger.py               rules.json, ledger.json, delta validation, the stage 10 bible
-  outline.py              stage 11: chapters, validators, rules additions
+  outline.py              stage 11: chapters, closing actors, validators, rules additions
   scene_card.py           stage 12: goal / conflict / turn cards
   narrator_voice.py       stage 13: voice.md and the banned-phrase table
-  model_json.py           strict JSON replies: extraction, banned phrases, retries
+  chapter_writer.py       stage 14: prose, illustration markers, summaries and ledger gates
+  budget.py               per-day call counter and the --max-calls wrapper
+  model_json.py           strict JSON replies: extraction, banned phrases, retries, partials
   craft_targets.py        craft_targets.json ranges, sampled with the run seed
   model_notes.py          the optional model-prose layer for stage 13
-  adapters/               base, echo, manual, openai_compatible, stub_search, manual_search,
-                          wikipedia, generic_json
-  gates/                  ledger_check (M5); linter, rubric and originality come later
+  adapters/               base, echo, manual, openai_compatible, tiered, stub_search,
+                          manual_search, wikipedia, generic_json
+  gates/                  ledger_check and linter; rubric and originality come later
 skills/                   one Markdown skill per built stage (with YAML frontmatter)
 tables/                   starter randomizer tables (JSON; used.json is local memory)
 tests/                    one module per acceptance test group

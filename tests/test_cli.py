@@ -67,7 +67,6 @@ def test_status_command_accepts_project_flag(tmp_path, capsys):
 @pytest.mark.parametrize(
     "argv",
     [
-        ["check", "ch01"],
         ["export"],
     ],
 )

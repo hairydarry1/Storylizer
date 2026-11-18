@@ -141,7 +141,7 @@ class FailAtChapterWriter(ChapterWriter):
     """Invalid reply from one chapter on, so a run stops with a partial file worth resuming."""
 
     def __init__(self, fail_at: int) -> None:
-        super().__init__({})
+        super().__init__()
         self.fail_at = fail_at
 
     def complete(self, prompt, **kwargs):

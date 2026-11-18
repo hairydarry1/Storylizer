@@ -13,12 +13,13 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from . import ledger, randomizer, runner
+from . import envfile, ledger, randomizer, runner
 from .adapters import AdapterError
+from .chapter_writer import ChapterWriterError
+from .gates.linter import LinterError
 
 #: command -> milestone that implements it
 PLANNED_IN: dict[str, str] = {
-    "check": "M7",
     "export": "M8",
 }
 
@@ -67,6 +68,19 @@ def build_parser() -> argparse.ArgumentParser:
             "cap the model calls this run may make; the per-day total is saved in the project "
             "(projects/<slug>/calls.json)"
         ),
+    )
+    run.add_argument(
+        "--chapter",
+        type=int,
+        default=None,
+        help="chapter_writer only: draft just this chapter",
+    )
+    run.add_argument(
+        "--from",
+        dest="from_chapter",
+        type=int,
+        default=None,
+        help="chapter_writer only: start at this chapter and skip accepted chapters",
     )
     run.add_argument("--project", "-p", default=None, help="project slug (default: the only project)")
 
@@ -126,7 +140,16 @@ def build_parser() -> argparse.ArgumentParser:
     reroll.add_argument("--project", "-p", default=None, help="project slug (default: the only project)")
 
     check = commands.add_parser("check", help="run the quality gates on one chapter")
-    check.add_argument("chapter")
+    check.add_argument(
+        "chapter",
+        help="chapter markdown file, or a name in projects/<slug>/chapters (e.g. ch01)",
+    )
+    check.add_argument(
+        "--delta",
+        default=None,
+        help="ledger delta JSON to validate against the series bible (also runs ledger_check)",
+    )
+    check.add_argument("--project", "-p", default=None, help="project slug (default: the only project)")
 
     commands.add_parser("export", help="build the EPUB and KDP_DISCLOSURE.md")
 
@@ -258,6 +281,8 @@ def _cmd_run_all(root: Path, args: argparse.Namespace) -> int:
 
 def _cmd_run(root: Path, args: argparse.Namespace) -> int:
     if str(args.stage).strip().lower() == "all":
+        if args.chapter is not None or args.from_chapter is not None:
+            raise runner.StoryError("--chapter and --from only apply to chapter_writer")
         return _cmd_run_all(root, args)
 
     config = runner.load_config(root, args.config)
@@ -269,6 +294,8 @@ def _cmd_run(root: Path, args: argparse.Namespace) -> int:
         config=config,
         skeleton=args.skeleton,
         max_calls=args.max_calls,
+        chapter=args.chapter,
+        from_chapter=args.from_chapter,
     )
 
     print(f"stage:  {result.stage.dir_name}")
@@ -323,6 +350,81 @@ def _cmd_reroll(root: Path, args: argparse.Namespace) -> int:
     print(f"  was: {before}")
     print(f"  now: {rolled.value}")
     return 0
+
+
+def _resolve_chapter(project: Path, requested: str) -> Path:
+    """A chapter path as given, or a name under the project's chapters/ directory."""
+    path = Path(requested)
+    if path.is_file():
+        return path
+
+    chapters = project / "chapters"
+    candidates = [chapters / requested]
+    if not path.suffix:
+        candidates.append(chapters / f"{requested}.md")
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise runner.StoryError(
+        f"chapter file not found: {requested}; looked in {chapters} (try ch01 or ch01.md)"
+    )
+
+
+def _cmd_check(root: Path, args: argparse.Namespace) -> int:
+    from .gates import ledger_check, linter
+
+    config = runner.load_config(root, args.config)
+    project = runner.project_path(root, _resolve_slug(root, args.project))
+    chapter_path = _resolve_chapter(project, args.chapter)
+
+    raw_options = config.gates.get("linter")
+    if raw_options is not None and not isinstance(raw_options, dict):
+        raise runner.StoryError("config: 'gates.linter' must be a mapping of thresholds")
+    options = linter.Options.from_mapping(raw_options)
+    report = linter.lint_file(
+        chapter_path,
+        options=options,
+        banned_phrases=linter.load_banned_phrases(root / "tables"),
+    )
+
+    reports = project / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    json_path = reports / f"lint-{chapter_path.stem}.json"
+    markdown_path = reports / f"lint-{chapter_path.stem}.md"
+    json_path.write_text(
+        json.dumps(report.to_dict(), indent=2, sort_keys=False) + "\n", encoding="utf-8"
+    )
+    markdown_path.write_text(linter.render_markdown(report), encoding="utf-8")
+
+    flagged = sum(report.counts.values())
+    print(
+        f"linter: {'ok' if report.passed else 'failed'} "
+        f"({report.words} words, {flagged} finding(s))"
+    )
+    print(f"json: {json_path}")
+    print(f"markdown: {markdown_path}")
+
+    ledger_ok = True
+    if args.delta:
+        delta_path = Path(args.delta)
+        if not delta_path.is_file():
+            raise runner.StoryError(f"delta file not found: {delta_path}")
+        try:
+            delta = json.loads(delta_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise runner.StoryError(f"{delta_path} is not valid JSON: {exc}") from exc
+
+        story, rules = ledger_check.load_story_state(project)
+        result = ledger_check.check_delta(story, rules, delta)
+        for note in result.notes:
+            print(f"note: {note}")
+        ledger_ok = result.ok
+        print(f"ledger: {'ok' if result.ok else 'failed'}")
+        if not result.ok:
+            for error in result.errors:
+                print(f"error: {error}", file=sys.stderr)
+
+    return 0 if report.passed and ledger_ok else 1
 
 
 def _cmd_ledger(root: Path, args: argparse.Namespace) -> int:
@@ -398,6 +500,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     root = Path(args.root)
 
     try:
+        # The folder holding config.yaml is the project root for .env purposes.
+        env_root = Path(args.config).parent if args.config else root
+        envfile.load_env(env_root)
+
         if args.command == "init":
             return _cmd_init(root, args)
         if args.command == "status":
@@ -412,11 +518,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_run(root, args)
         if args.command == "approve":
             return _cmd_approve(root, args)
+        if args.command == "check":
+            return _cmd_check(root, args)
         if args.command == "ledger":
             return _cmd_ledger(root, args)
         if args.command == "rules":
             return _cmd_rules(root, args)
-    except (runner.StoryError, AdapterError, ledger.LedgerError, ledger.RulesError) as exc:
+    except (
+        runner.StoryError,
+        AdapterError,
+        ChapterWriterError,
+        envfile.EnvFileError,
+        LinterError,
+        ledger.LedgerError,
+        ledger.RulesError,
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 

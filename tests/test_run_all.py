@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from pipeline import cli, runner
 
 
@@ -45,22 +47,24 @@ def test_run_all_after_gate_one_builds_the_bible_and_outline_and_stops_at_gate_t
     assert (stage_dir(workspace, "11-outline") / "outline.json").is_file()
 
 
-def test_run_all_after_gate_two_runs_the_drafting_stages_then_names_m7(workspace):
+def test_run_all_after_gate_two_reaches_the_chapter_writer(workspace):
     runner.run_all(workspace, "demo", skeleton=True)
     runner.approve_gate(workspace, "demo", "1")
     runner.run_all(workspace, "demo", skeleton=True)
     runner.approve_gate(workspace, "demo", "2")
 
-    try:
-        runner.run_all(workspace, "demo", skeleton=True)
-    except runner.StoryError as exc:
-        assert "M7" in str(exc)
-        assert "chapter_writer" in str(exc)
-    else:  # pragma: no cover - the assertion above is the point
-        raise AssertionError("run all should name the milestone that builds stage 14")
+    result = runner.run_all(workspace, "demo", skeleton=True)
 
-    for name in ("12-scene_card", "13-narrator_voice"):
+    assert [run.stage.number for run in result.results] == [12, 13, 14]
+    assert result.stopped_at == runner.resolve_stage("chapter_writer")
+    assert result.results[-1].status == runner.FAILED
+    for name in ("12-scene_card", "13-narrator_voice", "14-chapter_writer"):
         assert (stage_dir(workspace, name) / "output.md").is_file()
+
+
+def test_run_all_names_the_next_unbuilt_stage(workspace):
+    with pytest.raises(runner.StoryError, match="M7c"):
+        runner.run_stage(workspace, "demo", "quality_gates")
 
 
 def test_run_all_skips_completed_early_stages_but_finishes_the_rest(workspace):

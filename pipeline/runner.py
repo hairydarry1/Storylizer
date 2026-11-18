@@ -31,9 +31,9 @@ GATE_MILESTONES = {3: "M8"}
 
 #: stage -> milestone that writes its skill, for the "not built yet" message
 STAGE_MILESTONES = {
-    14: "M7",
-    15: "M7",
-    16: "M7",
+    14: "M7b",
+    15: "M7c",
+    16: "M7c",
     17: "M8",
     18: "M8",
     19: "M8",
@@ -219,6 +219,7 @@ class Config:
     seed: int
     chaos_dial: int
     adapters: dict[str, Any]
+    gates: dict[str, Any] = field(default_factory=dict)
 
 
 def load_config(root: Path | str, path: Path | str | None = None) -> Config:
@@ -243,7 +244,17 @@ def load_config(root: Path | str, path: Path | str | None = None) -> Config:
     if not isinstance(adapters, dict):
         raise StoryError(f"{config_path}: 'adapters' must be a mapping")
 
-    return Config(path=config_path, seed=seed, chaos_dial=chaos_dial, adapters=adapters)
+    gates = raw.get("gates") or {}
+    if not isinstance(gates, dict):
+        raise StoryError(f"{config_path}: 'gates' must be a mapping")
+
+    return Config(
+        path=config_path,
+        seed=seed,
+        chaos_dial=chaos_dial,
+        adapters=adapters,
+        gates=gates,
+    )
 
 
 def load_llm_adapter(config: Config, **overrides: Any) -> LLMAdapter:
@@ -582,16 +593,21 @@ def run_stage(
     search: SearchAdapter | None = None,
     skeleton: bool = False,
     max_calls: int | None = None,
+    chapter: int | None = None,
+    from_chapter: int | None = None,
 ) -> RunResult:
     """Run one stage that has a skill file, writing output.md, meta.json and its artifacts.
 
     Missing upstream stages are passed in as empty with a note. An approved stage is never
     overwritten without `force`. Stages 11 and 12 are model-authored; `skeleton` asks for
     their deterministic text instead (tests and dry runs, never a real book). Every model
-    call is counted in the project's per-day tally; `max_calls` caps this run.
+    call is counted in the project's per-day tally; `max_calls` caps this run. Stage 14
+    accepts `chapter` (one chapter only) or `from_chapter` (start there); a chapter already
+    accepted in summaries.json is skipped.
     """
     from . import (
         budget,
+        chapter_writer,
         character_creation,
         craft_targets,
         early_stages,
@@ -607,6 +623,10 @@ def run_stage(
 
     root = Path(root)
     stage = resolve_stage(reference)
+    if chapter is not None and from_chapter is not None:
+        raise StoryError("use --chapter N or --from N, not both")
+    if stage.name != "chapter_writer" and (chapter is not None or from_chapter is not None):
+        raise StoryError("--chapter and --from only apply to the chapter_writer stage")
     project = project_path(root, slug)
     if not project.is_dir():
         raise StoryError(f"project not found: {project} (run `story init {slug}`)")
@@ -824,6 +844,7 @@ def run_stage(
             skill=skill,
             upstream=upstream,
             banned=banned,
+            partial_path=directory / "partial.json",
         )
         outline_file = directory / "outline.json"
         additions_file = directory / "rules_additions.json"
@@ -881,6 +902,7 @@ def run_stage(
             skill=skill,
             banned=banned,
             notes=notes,
+            partial_path=directory / "partial.json",
         )
         cards_file = directory / "cards.json"
         if report.ok:
@@ -929,6 +951,50 @@ def run_stage(
         }
         meta["craft_targets"] = voice["craft_targets"]
         meta["files"] = ["output.md", "voice.md", "meta.json"]
+
+    elif stage.name == "chapter_writer":
+        from .gates import linter
+
+        try:
+            context = chapter_writer.load_context(project)
+            targets = craft_targets.load_targets(craft_targets.find_targets(project, root))
+        except (chapter_writer.ChapterWriterError, craft_targets.CraftTargetError) as exc:
+            raise StoryError(str(exc)) from exc
+        banned = model_json.load_banned_phrases(root / "tables")
+        raw_options = config.gates.get("linter")
+        if raw_options is not None and not isinstance(raw_options, dict):
+            raise StoryError("config: 'gates.linter' must be a mapping of thresholds")
+        options = linter.Options.from_mapping(raw_options)
+
+        write_report = chapter_writer.write_chapters(
+            context,
+            skill=skill,
+            llm=llm,
+            seed=config.seed,
+            targets=targets,
+            banned=banned,
+            options=options,
+            chapter=chapter,
+            from_chapter=from_chapter,
+            notes=notes,
+        )
+        meta["chapters"] = [entry.to_dict() for entry in write_report.chapters]
+        meta["model"] = write_report.model
+        meta["scope"] = {
+            "chapter": chapter,
+            "from": from_chapter if from_chapter is not None else 1,
+        }
+        meta["summaries"] = chapter_writer.SUMMARY_FILE
+        meta["files"] = ["output.md", "meta.json"]
+        if not write_report.ok:
+            status = FAILED
+            meta["error"] = "; ".join(write_report.errors) or "a chapter needs revision"
+        scope_text = (
+            f"chapter {chapter}"
+            if chapter is not None
+            else f"chapters {from_chapter or 1}+"
+        )
+        output_text = chapter_writer.render_report(write_report, scope=scope_text)
 
     else:
         prompt = (

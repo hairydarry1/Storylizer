@@ -58,7 +58,9 @@ scene count. The writer never starts a scene without knowing what changes in it.
 ```
 
 `output.md` renders one `## Chapter N` section per chapter and one `### Scene N` per scene.
-`meta.json` records `model.mode`, the call count and, on failure, `failed_chapter`.
+`meta.json` records `model.mode`, the call count, `resumed` (chapters reused from
+`partial.json`) and, on failure, `failed_chapter`. Each validated chapter is saved to
+`partial.json` as it passes, and the file is deleted only when the stage completes.
 
 ## Do not
 
